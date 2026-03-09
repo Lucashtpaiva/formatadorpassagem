@@ -36,7 +36,7 @@ export async function getDashboardHtml(req: Request, res: Response) {
         
         <div class="grid">
             <div class="card">
-                <h2>Ofertas em Fila (Agrupadas por Grupo)</h2>
+                <h2>Mensagens Recebidas (Últimas 24h)</h2>
                 <div id="queue-container"><div class="loading">Carregando...</div></div>
             </div>
             
@@ -65,7 +65,7 @@ export async function getDashboardHtml(req: Request, res: Response) {
             container.innerHTML = '';
             
             if (Object.keys(queueMap).length === 0) {
-                 container.innerHTML = '<p style="color: #6b7280; font-size: 14px;">Nenhuma mensagem presa na fila hoje.</p>';
+                 container.innerHTML = '<p style="color: #6b7280; font-size: 14px;">Nenhuma mensagem recebida nas últimas 24h.</p>';
                  return;
             }
 
@@ -77,7 +77,7 @@ export async function getDashboardHtml(req: Request, res: Response) {
                     <strong>Grupo: \${phone} (\${group.chat_name || 'Desconhecido'})</strong>
                     <span>Imagens recebidas: \${group.images} | Textos recebidos: \${group.texts}</span>
                     <br><span style="font-size: 12px; color: #6b7280;">Última mensagem: \${new Date(group.last_updated).toLocaleString('pt-BR')}</span>
-                    \${(group.images >= 2 && group.texts >= 1) ? \`<button class="reprocess-btn" onclick="reprocess('\${phone}')">▶ Reprocessar as últimas 3</button>\` : ''}
+                    \${(group.images >= 2 && group.texts >= 1) ? \`<button class="reprocess-btn" onclick="reprocess('\${phone}')">▶ Reprocessar Último Trio</button>\` : ''}
                 \`;
                 container.appendChild(div);
             }
@@ -147,7 +147,6 @@ export async function getDashboardData(req: Request, res: Response) {
       .from('whatsapp_offers_temp')
       .select('group_phone, chat_name, msg_type, created_at')
       .gte('created_at', yesterday.toISOString())
-      .eq('processed', false)
       .order('created_at', { ascending: false });
 
     // 2. Fetch recent logs
