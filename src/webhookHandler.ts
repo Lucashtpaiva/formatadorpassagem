@@ -1,3 +1,4 @@
+import { Request, Response } from 'express';
 import { supabase } from './supabaseClient';
 import { processImageWithGPT, generateFinalOfferPayload } from './openaiClient';
 import { findDestinationImage, buildFormattedMessage, buildWhatsAppLink } from './formatting';
