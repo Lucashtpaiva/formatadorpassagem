@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient';
 import { processImageWithGPT, generateFinalOfferPayload } from './openaiClient';
 import { findDestinationImage, buildFormattedMessage, buildWhatsAppLink } from './formatting';
+import { logEvent } from './logger';
 
 export async function handleWhatsAppWebhook(req: Request, res: Response) {
   try {
@@ -26,17 +27,18 @@ export async function handleWhatsAppWebhook(req: Request, res: Response) {
     if (image && image.imageUrl) {
       msgType = 'image';
       content = image.imageUrl;
-      console.log(`[INFO] Processing image for group ${phone}`);
+      await logEvent(phone, 'RECEIVED_IMAGE', `Received image for group ${phone}`, { url: content });
+      
       extractedData = await processImageWithGPT(content);
       
       if (!extractedData) {
-        console.log(`[INFO] Image discarded (not a flight offer)`);
+        await logEvent(phone, 'OFFER_DISCARDED', `Image discarded (not a flight offer)`, { url: content });
         return res.status(200).send('Discarded');
       }
     } else if (text && text.message) {
       msgType = 'text';
       content = text.message;
-      console.log(`[INFO] Received text for group ${phone}`);
+      await logEvent(phone, 'RECEIVED_TEXT', `Received text for group ${phone}`, { text: content });
     } else {
       return res.status(200).send('Ignored');
     }
@@ -65,7 +67,7 @@ export async function handleWhatsAppWebhook(req: Request, res: Response) {
 
     return res.status(200).send('OK');
   } catch (error) {
-    console.error('Webhook Error:', error);
+    await logEvent(null, 'ERROR', `Webhook fatal error`, { error: String(error) });
     return res.status(500).send('Internal Server Error');
   }
 }
@@ -93,7 +95,7 @@ async function checkForCompleteOffer(phone: string, chatName: string) {
 
   // We need at least 2 images and 1 text message
   if (images.length >= 2 && texts.length >= 1) {
-    console.log(`[INFO] Found 3 matching messages for group ${phone}, processing final offer...`);
+    await logEvent(phone, 'PROCESSING_FINAL_OFFER', `Found 3 matching messages, parsing final JSON`, { imagesCount: images.length, textCount: texts.length });
 
     // Pick the most recent text and its corresponding images
     const textMsg = texts[texts.length - 1]; // Assume latest text is the offer details
@@ -104,10 +106,16 @@ async function checkForCompleteOffer(phone: string, chatName: string) {
     const messageIds = [textMsg.id, recentImages[0].id, recentImages[1].id];
 
     // Generate final JSON using GPT
-    const finalData = await generateFinalOfferPayload(
-      textMsg.content,
-      recentImages.map((img: any) => img.extracted_data)
-    );
+    let finalData;
+    try {
+      finalData = await generateFinalOfferPayload(
+        textMsg.content,
+        recentImages.map((img: any) => img.extracted_data)
+      );
+    } catch (e: any) {
+      await logEvent(phone, 'ERROR', `Error generating GPT final payload`, { error: e.message || String(e) });
+      return;
+    }
 
     const { link_programa, destino } = finalData;
 
@@ -155,9 +163,9 @@ async function checkForCompleteOffer(phone: string, chatName: string) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(destinationPayload)
          });
-         console.log(`[INFO] Final offer sent to webhook successfully!`);
+         await logEvent(phone, 'OFFER_PROCESSED', `Final offer JSON generated and sent to Destination Webhook`, { payload: destinationPayload });
       } else {
-         console.warn(`[WARN] DESTINATION_WEBHOOK_URL not defined. Mocking send:`, destinationPayload);
+         await logEvent(phone, 'ERROR', `DESTINATION_WEBHOOK_URL is missing!`, { payload: destinationPayload });
       }
       
       // Mark as processed
@@ -166,8 +174,8 @@ async function checkForCompleteOffer(phone: string, chatName: string) {
          .update({ processed: true })
          .in('id', messageIds);
 
-    } catch (e) {
-      console.error('[ERROR] Failed to send final webhook:', e);
+    } catch (e: any) {
+      await logEvent(phone, 'ERROR', `Failed to send POST to final webhook`, { error: e.message || String(e) });
     }
   }
 }
