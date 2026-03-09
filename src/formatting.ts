@@ -386,13 +386,8 @@ function formatDatesBlock(dates: any[]) {
   
   const MAX_DATES = 10;
   const displayDates = sorted.slice(0, MAX_DATES);
-  const hiddenCount = sorted.length - displayDates.length;
   
   let result = displayDates.map(d => `🗓 ${d}`).join("\\n");
-  
-  if (hiddenCount > 0) {
-    result += `\\n... e mais ${hiddenCount} data(s)`;
-  }
   
   return result;
 }
