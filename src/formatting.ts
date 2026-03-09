@@ -383,7 +383,18 @@ function sortDates(list: any[]) {
 function formatDatesBlock(dates: any[]) {
   const sorted = sortDates(uniq(dates));
   if (!sorted.length) return "";
-  return sorted.map(d => `🗓 ${d}`).join("\\n");
+  
+  const MAX_DATES = 10;
+  const displayDates = sorted.slice(0, MAX_DATES);
+  const hiddenCount = sorted.length - displayDates.length;
+  
+  let result = displayDates.map(d => `🗓 ${d}`).join("\\n");
+  
+  if (hiddenCount > 0) {
+    result += `\\n... e mais ${hiddenCount} data(s)`;
+  }
+  
+  return result;
 }
 
 export function buildFormattedMessage(data: any): string {
@@ -392,15 +403,55 @@ export function buildFormattedMessage(data: any): string {
   const cia = safeStr(data.cia_aerea, "CIA");
   const programa = safeStr(data.programa_mais_vantajoso, "PROGRAMA");
 
+  // ----------
+  // Custo Milheiro
+  // ----------
+  const milheiroPorPrograma: Record<string, number> = {
+    'Azul Fidelidade': 14.5,
+    'Smiles': 14.5,
+    'LATAM Pass': 24,
+    'Iberia Club': 58,
+    'TAP Miles&Go': 33,
+    'AAdvantage': 80,
+    'Executive Club': 80,
+    'MileagePlus': 80,
+    'Privilege Club': 80,
+    'ALL Accor': 80,
+    'ConnectMiles': 80,
+    'Flying Blue': 80,
+    'Asia Miles': 80,
+    'LifeMiles': 80,
+    'Skywards': 80,
+    'Krisflyer': 80,
+    'Mileage Plan': 80,
+    'Aeroplan': 80,
+    'Krysflyer': 80,
+    'Mileage Bank': 80,
+    'Flying Club': 80,
+  };
+
+  const multiplicador = milheiroPorPrograma[programa] || 0;
+
   const datasIda = Array.isArray(data.datas_ida) ? data.datas_ida : [];
   const datasVolta = Array.isArray(data.datas_volta) ? data.datas_volta : [];
 
   const milhasIda = Number(data.milhas_ida || 0);
   const milhasVolta = Number(data.milhas_volta || 0);
 
-  const valorIda = Number(data.valor_ida || 0);
-  const valorVolta = Number(data.valor_volta || 0);
-  const valorIdaEVolta = Number(data.valor_ida_e_volta || 0);
+  let valorIda = Number(data.valor_ida || 0);
+  let valorVolta = Number(data.valor_volta || 0);
+  let valorIdaEVolta = Number(data.valor_ida_e_volta || 0);
+
+  // Se o JSON não trouxer o valor em R$ mas tiver o multiplicador, calculamos:
+  if (valorIda === 0 && milhasIda > 0 && multiplicador > 0) {
+    valorIda = (milhasIda / 1000) * multiplicador;
+  }
+  if (valorVolta === 0 && milhasVolta > 0 && multiplicador > 0) {
+    valorVolta = (milhasVolta / 1000) * multiplicador;
+  }
+  if (valorIdaEVolta === 0 && (valorIda > 0 || valorVolta > 0)) {
+    valorIdaEVolta = valorIda + valorVolta;
+  }
 
   const valorTaxas = Number(data.valor_taxas || 0);
 
@@ -443,16 +494,56 @@ export function buildWhatsAppLink(data: any): string {
   const cia = safeStr(data.cia_aerea, "CIA");
   const programa = safeStr(data.programa_mais_vantajoso, "PROGRAMA");
 
+  // ----------
+  // Custo Milheiro
+  // ----------
+  const milheiroPorPrograma: Record<string, number> = {
+    'Azul Fidelidade': 14.5,
+    'Smiles': 14.5,
+    'LATAM Pass': 24,
+    'Iberia Club': 58,
+    'TAP Miles&Go': 33,
+    'AAdvantage': 80,
+    'Executive Club': 80,
+    'MileagePlus': 80,
+    'Privilege Club': 80,
+    'ALL Accor': 80,
+    'ConnectMiles': 80,
+    'Flying Blue': 80,
+    'Asia Miles': 80,
+    'LifeMiles': 80,
+    'Skywards': 80,
+    'Krisflyer': 80,
+    'Mileage Plan': 80,
+    'Aeroplan': 80,
+    'Krysflyer': 80,
+    'Mileage Bank': 80,
+    'Flying Club': 80,
+  };
+
+  const multiplicador = milheiroPorPrograma[programa] || 0;
+
   const datasIda = Array.isArray(data.datas_ida) ? data.datas_ida : [];
   const datasVolta = Array.isArray(data.datas_volta) ? data.datas_volta : [];
 
   const milhasIda = Number(data.milhas_ida || 0);
   const milhasVolta = Number(data.milhas_volta || 0);
 
-  const valorIda = Number(data.valor_ida || 0);
-  const valorVolta = Number(data.valor_volta || 0);
-  const valorIdaEVolta = Number(data.valor_ida_e_volta || 0);
+  let valorIda = Number(data.valor_ida || 0);
+  let valorVolta = Number(data.valor_volta || 0);
+  let valorIdaEVolta = Number(data.valor_ida_e_volta || 0);
   const valorTaxas = Number(data.valor_taxas || 0);
+
+  // Se o JSON não trouxer o valor em R$ mas tiver o multiplicador, calculamos:
+  if (valorIda === 0 && milhasIda > 0 && multiplicador > 0) {
+    valorIda = (milhasIda / 1000) * multiplicador;
+  }
+  if (valorVolta === 0 && milhasVolta > 0 && multiplicador > 0) {
+    valorVolta = (milhasVolta / 1000) * multiplicador;
+  }
+  if (valorIdaEVolta === 0 && (valorIda > 0 || valorVolta > 0)) {
+    valorIdaEVolta = valorIda + valorVolta;
+  }
 
   const isOneWay =
     !uniq(datasVolta).length ||
