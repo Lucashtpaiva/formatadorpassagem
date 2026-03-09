@@ -7,18 +7,16 @@ import { logEvent } from './logger';
 export async function handleWhatsAppWebhook(req: Request, res: Response) {
   try {
     // Determine structure (sometimes Z-API wraps messages in an array)
-    const bodyArgs = Array.isArray(req.body) ? req.body[0] : req.body;
+    const rootData = Array.isArray(req.body) ? req.body[0] : req.body;
     
-    // Safety check
-    if (!bodyArgs || !bodyArgs.body) {
-      return res.status(400).send('Invalid payload');
+    // Safety check - resilient to both `{{ $json }}` and `{{ $json.body }}`
+    const payload = rootData.body ? rootData.body : rootData;
+
+    if (!payload || !payload.phone) {
+      return res.status(400).send('Invalid payload or missing phone property');
     }
 
-    const { phone, chatName, text, image } = bodyArgs.body;
-
-    if (!phone) {
-      return res.status(400).send('Missing phone (group identifier)');
-    }
+    const { phone, chatName, text, image } = payload;
 
     let msgType = '';
     let content = '';
