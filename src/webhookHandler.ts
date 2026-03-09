@@ -71,7 +71,7 @@ export async function handleWhatsAppWebhook(req: Request, res: Response) {
   }
 }
 
-async function checkForCompleteOffer(phone: string, chatName: string) {
+export async function checkForCompleteOffer(phone: string, chatName: string) {
   // Get unprocessed messages for this group in the last 15 minutes
   const fifteenMinsAgo = new Date();
   fifteenMinsAgo.setMinutes(fifteenMinsAgo.getMinutes() - 15);

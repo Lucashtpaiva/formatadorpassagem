@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 
-type EventType = 'RECEIVED_IMAGE' | 'RECEIVED_TEXT' | 'OFFER_DISCARDED' | 'PROCESSING_FINAL_OFFER' | 'OFFER_PROCESSED' | 'ERROR';
+type EventType = 'RECEIVED_IMAGE' | 'RECEIVED_TEXT' | 'OFFER_DISCARDED' | 'PROCESSING_FINAL_OFFER' | 'OFFER_PROCESSED' | 'ERROR' | 'REPROCESS_INITIATED';
 
 export async function logEvent(groupPhone: string | null, eventType: EventType, message: string, metadata?: any) {
   try {
