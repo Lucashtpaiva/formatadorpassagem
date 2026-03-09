@@ -1,0 +1,53 @@
+[
+    {
+        "headers": {
+            "host": "n8n.goldenfunnels.com.br",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 13.2; rv:111.0) Gecko/20100101 Firefox/111.0",
+            "content-length": "1407",
+            "accept-encoding": "gzip",
+            "content-type": "application/json; charset=utf-8",
+            "origin": "https://api.z-api.io",
+            "server": "Z-API",
+            "x-forwarded-for": "144.22.253.17",
+            "x-forwarded-host": "n8n.goldenfunnels.com.br",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "cfeaadf5b17d",
+            "x-real-ip": "144.22.253.17",
+            "z-api-token": "BDDDB907B97CCEA6CC82BF86"
+        },
+        "params": {},
+        "query": {},
+        "body": {
+            "isStatusReply": false,
+            "chatLid": null,
+            "connectedPhone": "5521988152715",
+            "waitingMessage": false,
+            "isEdit": false,
+            "isGroup": true,
+            "isNewsletter": false,
+            "instanceId": "3EFBE0C90B2EA1E00B39423ADE795445",
+            "messageId": "A525E985F21BA12DC50A2332CD9DA207",
+            "phone": "120363422957161316-group",
+            "fromMe": false,
+            "momment": 1773083673001,
+            "status": "RECEIVED",
+            "chatName": "Mundo Ultra #949",
+            "senderPhoto": "https://pps.whatsapp.net/v/t61.24694-24/617618411_1862197458503765_3333395063673059108_n.jpg?ccb=11-4&oh=01_Q5Aa4AHGCNR_Zofb4YGQ990uzojyvdlf2SnWJtFCSIGpWKqbig&oe=69BC3900&_nc_sid=5e03e0&_nc_cat=103",
+            "senderName": "Passageiro de Primeira",
+            "photo": null,
+            "broadcast": false,
+            "participantPhone": "5511936204434",
+            "participantLid": null,
+            "messageExpirationSeconds": 7776000,
+            "forwarded": false,
+            "type": "ReceivedCallback",
+            "fromApi": false,
+            "text": {
+                "message": "*🚨 SP direto para Madri por 20.000 Avios Iberia Club! 🔥* \n \nDados do alerta \n- Rota: São Paulo > Madri \n- Companhia: Iberia \n- Cabine: Econômica \n- Itinerário: Ida e volta \n \nIberia Club \n- Custo ida: ± 20.000 Avios + US$ 81,80 taxas \n- Custo volta: ± 20.000 Avios + US$ 99,00 taxas \n- Emissão: site (iberia.com/br), call center (3956-5999) \n \nLinks úteis \n- Como transferir Avios entre os programas da Finnair, British, Iberia e Qatar - pd1a.com/4aY93ZK \n- O Guia Completo do Iberia Club - pd1a.com/m5q6y \n- Guia gratuito de Madri 🇪🇸 - pd1a.com/f7c4p"
+            }
+        },
+        "webhookUrl": "https://n8n.goldenfunnels.com.br/webhook/passageirodeprimeira",
+        "executionMode": "production"
+    }
+]

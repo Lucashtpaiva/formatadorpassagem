@@ -1,0 +1,1175 @@
+{
+  "name": "WEBHOOK WHATSAPP",
+  "nodes": [
+    {
+      "parameters": {
+        "multipleMethods": true,
+        "httpMethod": [
+          "POST"
+        ],
+        "path": "726b557b-b2f7-412f-8078-544346921c23",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -6368,
+        1376
+      ],
+      "id": "86e2e3f3-099e-4b0b-a536-5d20df6f8e34",
+      "name": "Webhook",
+      "webhookId": "726b557b-b2f7-412f-8078-544346921c23"
+    },
+    {
+      "parameters": {
+        "dataToSave": {
+          "values": [
+            {
+              "key": "fonte",
+              "value": "={{ $json.body.chatName }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executionData",
+      "typeVersion": 1.1,
+      "position": [
+        -6000,
+        1648
+      ],
+      "id": "b4cfbabe-d7ea-42c5-a501-fabf10bc6ac8",
+      "name": "Execution Data"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.text.message }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notExists",
+                      "singleValue": true
+                    },
+                    "id": "ed9482b3-3ec6-4891-8b1f-c9bb88e4e782"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "IMAGEM"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "245e7727-0cb7-4c1b-bdc7-82e04342a827",
+                    "leftValue": "={{ $json.body.text.message }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SOMENTE TEXTO"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -5184,
+        1904
+      ],
+      "id": "7f2fdc63-0527-4d51-86d2-9f8a63a0da9c",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.chatName }}",
+                    "rightValue": "Alertas Premium",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "id": "38be17f3-8651-46a9-a5ff-c44182a75676"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Alerta de voos"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3cd46d43-ef97-4d0a-91a9-f64afb5f6664",
+                    "leftValue": "={{ $json.body.chatName }}",
+                    "rightValue": "Mundo",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "PP"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "7cb5870f-5d94-4ebd-acef-114d95ac884f",
+                    "leftValue": "={{ $json.body.chatName }}",
+                    "rightValue": "(TESTE PREMIUM) Mundo",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Grupo de Teste"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -5712,
+        1360
+      ],
+      "id": "ca253f38-2f3b-4f3d-afec-53e3ad50fe6a",
+      "name": "Separa Origem do Alerta"
+    },
+    {
+      "parameters": {
+        "tableId": "ALERTA PP TEMP",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "origem",
+              "fieldValue": "={{ $json.origem }}"
+            },
+            {
+              "fieldId": "destino",
+              "fieldValue": "={{ $json.destino }}"
+            },
+            {
+              "fieldId": "datas",
+              "fieldValue": "={{ $json.datas }}"
+            },
+            {
+              "fieldId": "regiao_origem",
+              "fieldValue": "={{ $json[\"região\"] }}"
+            },
+            {
+              "fieldId": "bandeira",
+              "fieldValue": "={{ $json.bandeira }}"
+            },
+            {
+              "fieldId": "internacional",
+              "fieldValue": "={{ $json.internacional }}"
+            },
+            {
+              "fieldId": "continente",
+              "fieldValue": "={{ $json.continente }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -3616,
+        1872
+      ],
+      "id": "2d2f09e6-d10e-41f4-9a6c-f4ad749d8019",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "KeVeu9g1crObPWyr",
+          "name": "Supabase Dash Buscavoo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "tableId": "ALERTA PP TEMP",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "=1"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -3696,
+        2704
+      ],
+      "id": "1007312a-34a8-44e3-b2a0-cb55b6457fd0",
+      "name": "Delete a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "KeVeu9g1crObPWyr",
+          "name": "Supabase Dash Buscavoo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -4640,
+        2160
+      ],
+      "id": "53cf96f1-5327-4f24-a158-c784d180c61f",
+      "name": "Wait1",
+      "webhookId": "cf04ec43-7a85-45d6-a6d3-613207097032"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "Você está analisando uma imagem que pode ou não conter um alerta de voo.\n\nTarefas:\n\n1) Verifique se a imagem contém claramente informações de um voo, incluindo:\n   - Cidade de origem\n   - Cidade de destino final\n   - Datas disponíveis para viagem\n\n2) Se a imagem CONTIVER essas informações, responda SOMENTE em JSON no formato:\n\n{\n  \"origem\": \"<cidade de origem>\",\n  \"destino\": \"<cidade de destino final>\",\n  \"região\": \"região da cidade brasileira\",\n  \"bandeira\": \"bandeira no formato emoji do país de destino\",\n  \"internacional\": \"TRUE or FALSE\",\n  \"continente\": \"Continente de destino (América do Norte, Europa, Asia etc)\",\n  \"datas\": [\"dd/mm/aa\", \"dd/mm/aa\"]\n}\n\nRegras:\n- Use apenas nomes de cidades, sem códigos de aeroporto (não use GRU, CUN, LIS etc).\n- Converta todas as datas para o formato \"dd/mm/aa\".\n- Não considere a cidade de escala no meio, caso tenha.\n- Se houver múltiplos meses, junte todas as datas em uma única lista.\n- Não inclua texto fora do JSON.\n- Não inclua campos extras.\n\n3) Se a imagem NÃO contiver informações claras de voo (origem, destino e datas), responda EXATAMENTE com:\n\nNÃO É ALERTA DE VOO\n\nResponda com JSON sem blocos de código markdown (não use ```\n"
+            },
+            {
+              "type": "image",
+              "imageUrl": "={{ $('Webhook').item.json.body.image.imageUrl }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "maxTokens": 3000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -4544,
+        1888
+      ],
+      "id": "3fdb0754-4064-4e6e-b9a2-30fbf102e423",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "EPcmFLYki6ctbsRu",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// =====================================================================\n// n8n Code Node — Match Imagem por Destino\n// Recebe: destino (string) do nó anterior\n// Saída: image_destino (URL da imagem) + image_match_info (debug)\n// Estratégias: IATA → alias → exato → substring → palavras → fallback\n// =====================================================================\n\n// ── CONFIGURAÇÃO ─────────────────────────────────────────────────────\nvar FALLBACK_IMAGE = \"https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=600&q=80\"; // avião genérico\n\n// ── LOOKUP: city → image (527 destinos) ──────────────────────────────\nvar DESTINATIONS_LOOKUP = {\"Bangkok\":\"https://nomads.com/assets/img/places/bangkok-thailand.jpg\",\"Buenos Aires\":\"https://nomads.com/assets/img/places/buenos-aires-argentina.jpg\",\"Lisboa\":\"https://nomads.com/assets/img/places/lisbon-portugal.jpg\",\"Medellín\":\"https://nomads.com/assets/img/places/medellin-colombia.jpg\",\"Chiang Mai\":\"https://nomads.com/assets/img/places/chiang-mai-thailand.jpg\",\"Canggu\":\"https://nomads.com/assets/img/places/canggu-bali-indonesia.jpg\",\"Playa del Carmen\":\"https://nomads.com/assets/img/places/playa-del-carmen-mexico.jpg\",\"Ho Chi Minh\":\"https://nomads.com/assets/img/places/ho-chi-minh-city-vietnam.jpg\",\"Tenerife\":\"https://nomads.com/assets/img/places/tenerife-canary-islands-spain.jpg\",\"Kuala Lumpur\":\"https://nomads.com/assets/img/places/kuala-lumpur-malaysia.jpg\",\"Tbilisi\":\"https://nomads.com/assets/img/places/tbilisi-georgia.jpg\",\"Barcelona\":\"https://nomads.com/assets/img/places/barcelona-spain.jpg\",\"Seul\":\"https://nomads.com/assets/img/places/seoul-south-korea.jpg\",\"Tóquio\":\"https://nomads.com/assets/img/places/tokyo-japan.jpg\",\"Berlim\":\"https://nomads.com/assets/img/places/berlin-germany.jpg\",\"Taipei\":\"https://nomads.com/assets/img/places/taipei-taiwan.jpg\",\"Porto\":\"https://nomads.com/assets/img/places/porto-portugal.jpg\",\"Da Nang\":\"https://nomads.com/assets/img/places/da-nang-vietnam.jpg\",\"Cidade do México\":\"https://nomads.com/assets/img/places/mexico-city-mexico.jpg\",\"Ubud\":\"https://nomads.com/assets/img/places/ubud-bali-indonesia.jpg\",\"Split\":\"https://nomads.com/assets/img/places/split-croatia.jpg\",\"Dubai\":\"https://nomads.com/assets/img/places/dubai-united-arab-emirates.jpg\",\"Bogotá\":\"https://nomads.com/assets/img/places/bogota-colombia.jpg\",\"Budapeste\":\"https://nomads.com/assets/img/places/budapest-hungary.jpg\",\"São Paulo\":\"https://nomads.com/assets/img/places/sao-paulo-brazil.jpg\",\"Praga\":\"https://nomads.com/assets/img/places/prague-czech-republic.jpg\",\"Hanói\":\"https://nomads.com/assets/img/places/hanoi-vietnam.jpg\",\"Rio de Janeiro\":\"https://nomads.com/assets/img/places/rio-de-janeiro-brazil.jpg\",\"Phuket\":\"https://nomads.com/assets/img/places/phuket-thailand.jpg\",\"Florianópolis\":\"https://nomads.com/assets/img/places/florianopolis-brazil.jpg\",\"Curitiba\":\"https://nomads.com/assets/img/places/curitiba-brazil.jpg\",\"Porto Alegre\":\"https://nomads.com/assets/img/places/porto-alegre-brazil.jpg\",\"Belo Horizonte\":\"https://nomads.com/assets/img/places/belo-horizonte-brazil.jpg\",\"Salvador\":\"https://nomads.com/assets/img/places/salvador-brazil.jpg\",\"Recife\":\"https://nomads.com/assets/img/places/recife-brazil.jpg\",\"Fortaleza\":\"https://nomads.com/assets/img/places/fortaleza-brazil.jpg\",\"Natal\":\"https://nomads.com/assets/img/places/natal-brazil.jpg\",\"Brasília\":\"https://nomads.com/assets/img/places/brasilia-brazil.jpg\",\"Manaus\":\"https://nomads.com/assets/img/places/manaus-brazil.jpg\",\"Belém\":\"https://nomads.com/assets/img/places/belem-brazil.jpg\",\"Goiânia\":\"https://nomads.com/assets/img/places/goiania-brazil.jpg\",\"João Pessoa\":\"https://nomads.com/assets/img/places/joao-pessoa-brazil.jpg\",\"Vitória\":\"https://nomads.com/assets/img/places/vitoria-brazil.jpg\",\"Campinas\":\"https://nomads.com/assets/img/places/campinas-brazil.jpg\",\"Singapura\":\"https://nomads.com/assets/img/places/singapore.jpg\",\"Osaka\":\"https://nomads.com/assets/img/places/osaka-japan.jpg\",\"Busan\":\"https://nomads.com/assets/img/places/busan-south-korea.jpg\",\"Hong Kong\":\"https://nomads.com/assets/img/places/hong-kong.jpg\",\"Manila\":\"https://nomads.com/assets/img/places/manila-philippines.jpg\",\"Cebu\":\"https://nomads.com/assets/img/places/cebu-philippines.jpg\",\"Phnom Penh\":\"https://nomads.com/assets/img/places/phnom-penh-cambodia.jpg\",\"Jacarta\":\"https://nomads.com/assets/img/places/jakarta-indonesia.jpg\",\"Mumbai\":\"https://nomads.com/assets/img/places/mumbai-india.jpg\",\"Nova Delhi\":\"https://images.unsplash.com/photo-1587474260584-136574528ed5?w=600&q=80\",\"Bangalore\":\"https://nomads.com/assets/img/places/bangalore-india.jpg\",\"Goa\":\"https://nomads.com/assets/img/places/goa-india.jpg\",\"Colombo\":\"https://nomads.com/assets/img/places/colombo-sri-lanka.jpg\",\"Katmandu\":\"https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80\",\"Tel Aviv\":\"https://images.unsplash.com/photo-1552423314-cf29ab68ad73?w=600&q=80\",\"Cairo\":\"https://images.unsplash.com/photo-1539768942893-daf53e448371?w=600&q=80\",\"Nairobi\":\"https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=600&q=80\",\"Cidade do Cabo\":\"https://images.unsplash.com/photo-1580060839134-75a5edca2e99?w=600&q=80\",\"Lagos\":\"https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=600&q=80\",\"Acra\":\"https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=600&q=80\",\"Adis Abeba\":\"https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=600&q=80\",\"Dar es Salaam\":\"https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=600&q=80\",\"Amsterdã\":\"https://images.unsplash.com/photo-1534351590666-13e3e96b5017?w=600&q=80\",\"Paris\":\"https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=600&q=80\",\"Londres\":\"https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=600&q=80\",\"Roma\":\"https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=600&q=80\",\"Madri\":\"https://images.unsplash.com/photo-1539037116277-4db20889f2d4?w=600&q=80\",\"Milão\":\"https://images.unsplash.com/photo-1520175480921-4edfa2983e0f?w=600&q=80\",\"Viena\":\"https://images.unsplash.com/photo-1516550893923-42d28e5677af?w=600&q=80\",\"Zurique\":\"https://images.unsplash.com/photo-1515488764276-beab7607c1e6?w=600&q=80\",\"Atenas\":\"https://images.unsplash.com/photo-1555993539-1732b0258235?w=600&q=80\",\"Estocolmo\":\"https://images.unsplash.com/photo-1509356843151-3e7d96241e11?w=600&q=80\",\"Oslo\":\"https://images.unsplash.com/photo-1559682468-a6a29e7d9517?w=600&q=80\",\"Copenhague\":\"https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?w=600&q=80\",\"Varsóvia\":\"https://images.unsplash.com/photo-1519197924294-4ba991a11128?w=600&q=80\",\"Bucareste\":\"https://images.unsplash.com/photo-1583484963886-cfe2bff2945f?w=600&q=80\",\"Sofia\":\"https://images.unsplash.com/photo-1583484963886-cfe2bff2945f?w=600&q=80\",\"Nova Iorque\":\"https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=600&q=80\",\"Los Angeles\":\"https://images.unsplash.com/photo-1496281894233-acf4b0bfa760?w=600&q=80\",\"Miami\":\"https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=600&q=80\",\"Chicago\":\"https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=600&q=80\",\"São Francisco\":\"https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=600&q=80\",\"Las Vegas\":\"https://images.unsplash.com/photo-1581351721010-8cf859cb14a4?w=600&q=80\",\"Orlando\":\"https://images.unsplash.com/photo-1575089976121-8ed7b2a54265?w=600&q=80\",\"Boston\":\"https://images.unsplash.com/photo-1501979376754-1ff872af8b35?w=600&q=80\",\"Toronto\":\"https://images.unsplash.com/photo-1517935706615-2717063c2225?w=600&q=80\",\"Vancouver\":\"https://images.unsplash.com/photo-1559511260-66a654ae982a?w=600&q=80\",\"Montreal\":\"https://images.unsplash.com/photo-1519178614-68673b201f36?w=600&q=80\",\"Santiago\":\"https://images.unsplash.com/photo-1568694250748-01aaefc2e8f1?w=600&q=80\",\"Lima\":\"https://images.unsplash.com/photo-1531968455001-5c5272a41129?w=600&q=80\",\"Bogotá\":\"https://nomads.com/assets/img/places/bogota-colombia.jpg\",\"Caracas\":\"https://images.unsplash.com/photo-1568694250748-01aaefc2e8f1?w=600&q=80\",\"Assunção\":\"https://images.unsplash.com/photo-1568694250748-01aaefc2e8f1?w=600&q=80\",\"Montevidéu\":\"https://images.unsplash.com/photo-1568694250748-01aaefc2e8f1?w=600&q=80\",\"Quito\":\"https://images.unsplash.com/photo-1568694250748-01aaefc2e8f1?w=600&q=80\",\"La Paz\":\"https://images.unsplash.com/photo-1568694250748-01aaefc2e8f1?w=600&q=80\",\"Joanesburgo\":\"https://images.unsplash.com/photo-1580060839134-75a5edca2e99?w=600&q=80\",\"Sydney\":\"https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=600&q=80\",\"Melbourne\":\"https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=600&q=80\",\"Auckland\":\"https://images.unsplash.com/photo-1507699622108-4be3abd695ad?w=600&q=80\",\"Denpasar\":\"https://nomads.com/assets/img/places/denpasar-bali-indonesia.jpg\",\"Pequim\":\"https://images.unsplash.com/photo-1517309230475-46f21f4e180a?w=600&q=80\",\"Xangai\":\"https://images.unsplash.com/photo-1517309230475-46f21f4e180a?w=600&q=80\",\"Guangzhou\":\"https://images.unsplash.com/photo-1517309230475-46f21f4e180a?w=600&q=80\"};\n\n// ── IATA → cidade canônica (aeroportos mais usados por brasileiros) ────\nvar IATA_MAP = {\n  // Brasil\n  \"GRU\":\"São Paulo\",\"CGH\":\"São Paulo\",\"VCP\":\"Campinas\",\n  \"GIG\":\"Rio de Janeiro\",\"SDU\":\"Rio de Janeiro\",\n  \"BSB\":\"Brasília\",\"CNF\":\"Belo Horizonte\",\"PLU\":\"Belo Horizonte\",\n  \"SSA\":\"Salvador\",\"REC\":\"Recife\",\"FOR\":\"Fortaleza\",\n  \"NAT\":\"Natal\",\"CWB\":\"Curitiba\",\"POA\":\"Porto Alegre\",\n  \"FLN\":\"Florianópolis\",\"MAO\":\"Manaus\",\"BEL\":\"Belém\",\n  \"MCZ\":\"Maceió\",\"THE\":\"Teresina\",\"SLZ\":\"São Luís\",\n  \"JPA\":\"João Pessoa\",\"VIT\":\"Vitória\",\"GYN\":\"Goiânia\",\n  // EUA\n  \"JFK\":\"Nova Iorque\",\"EWR\":\"Nova Iorque\",\"LGA\":\"Nova Iorque\",\n  \"LAX\":\"Los Angeles\",\"MIA\":\"Miami\",\"MCO\":\"Orlando\",\n  \"ORD\":\"Chicago\",\"SFO\":\"São Francisco\",\"LAS\":\"Las Vegas\",\n  \"BOS\":\"Boston\",\"ATL\":\"Atlanta\",\"DFW\":\"Dallas\",\"IAH\":\"Houston\",\n  \"HNL\":\"Honolulu\",\"OGG\":\"Maui\",\n  // Europa\n  \"CDG\":\"Paris\",\"ORY\":\"Paris\",\n  \"LHR\":\"Londres\",\"LGW\":\"Londres\",\"STN\":\"Londres\",\n  \"FCO\":\"Roma\",\"MXP\":\"Milão\",\"LIN\":\"Milão\",\n  \"MAD\":\"Madri\",\"BCN\":\"Barcelona\",\n  \"AMS\":\"Amsterdã\",\"FRA\":\"Frankfurt\",\"MUC\":\"Munique\",\n  \"VIE\":\"Viena\",\"ZRH\":\"Zurique\",\"GVA\":\"Genebra\",\n  \"ATH\":\"Atenas\",\"LIS\":\"Lisboa\",\"OPO\":\"Porto\",\n  \"CPH\":\"Copenhague\",\"ARN\":\"Estocolmo\",\"OSL\":\"Oslo\",\n  \"HEL\":\"Helsinki\",\"DUB\":\"Dublin\",\"BRU\":\"Bruxelas\",\n  \"WAW\":\"Varsóvia\",\"PRG\":\"Praga\",\"BUD\":\"Budapeste\",\n  \"IST\":\"Istambul\",\"SAW\":\"Istambul\",\n  // Ásia\n  \"BKK\":\"Bangkok\",\"DMK\":\"Bangkok\",\n  \"NRT\":\"Tóquio\",\"HND\":\"Tóquio\",\n  \"ICN\":\"Seul\",\"GMP\":\"Seul\",\n  \"SIN\":\"Singapura\",\"KUL\":\"Kuala Lumpur\",\n  \"HKG\":\"Hong Kong\",\"TPE\":\"Taipei\",\n  \"PVG\":\"Xangai\",\"SHA\":\"Xangai\",\n  \"PEK\":\"Pequim\",\"PKX\":\"Pequim\",\n  \"CGK\":\"Jacarta\",\"DPS\":\"Denpasar\",\n  \"MNL\":\"Manila\",\"CEB\":\"Cebu\",\n  \"SGN\":\"Ho Chi Minh\",\"HAN\":\"Hanói\",\"DAD\":\"Da Nang\",\n  \"PNH\":\"Phnom Penh\",\"RGN\":\"Rangum\",\n  \"BOM\":\"Mumbai\",\"DEL\":\"Nova Delhi\",\"BLR\":\"Bangalore\",\n  \"GOI\":\"Goa\",\"CCU\":\"Calcutá\",\"MAA\":\"Chennai\",\n  \"KTM\":\"Katmandu\",\"CMB\":\"Colombo\",\n  \"OAK\":\"Oakland\",\"SJC\":\"San Jose\",\n  // Oriente Médio\n  \"DXB\":\"Dubai\",\"AUH\":\"Abu Dhabi\",\"DOH\":\"Doha\",\n  \"TLV\":\"Tel Aviv\",\"CAI\":\"Cairo\",\"AMM\":\"Amã\",\n  \"BEY\":\"Beirute\",\"RUH\":\"Riade\",\"KWI\":\"Kuwait City\",\n  // África\n  \"JNB\":\"Joanesburgo\",\"CPT\":\"Cidade do Cabo\",\n  \"NBO\":\"Nairobi\",\"LOS\":\"Lagos\",\"ACC\":\"Acra\",\"ADD\":\"Adis Abeba\",\n  \"DAR\":\"Dar es Salaam\",\"CMN\":\"Casablanca\",\"ALG\":\"Argel\",\n  // América Latina\n  \"EZE\":\"Buenos Aires\",\"AEP\":\"Buenos Aires\",\n  \"GRU\":\"São Paulo\",\"SCL\":\"Santiago\",\"LIM\":\"Lima\",\n  \"BOG\":\"Bogotá\",\"CCS\":\"Caracas\",\"ASU\":\"Assunção\",\n  \"MVD\":\"Montevidéu\",\"UIO\":\"Quito\",\"LPB\":\"La Paz\",\n  \"HAV\":\"Havana\",\"CUN\":\"Cancún\",\"GDL\":\"Guadalajara\",\n  \"MDE\":\"Medellín\",\"CTG\":\"Cartagena\",\"CLO\":\"Cali\",\n  // Oceania\n  \"SYD\":\"Sydney\",\"MEL\":\"Melbourne\",\"BNE\":\"Brisbane\",\n  \"PER\":\"Perth\",\"AKL\":\"Auckland\",\"CHC\":\"Christchurch\",\n  // Canadá\n  \"YYZ\":\"Toronto\",\"YVR\":\"Vancouver\",\"YUL\":\"Montreal\",\"YYC\":\"Calgary\"\n};\n\n// ── ALIASES: variações de nome → cidade canônica do JSON ───────────────\nvar ALIASES = {\n  // Inglês → Português (nomes do JSON)\n  \"tokyo\":\"Tóquio\",\"tokio\":\"Tóquio\",\n  \"seoul\":\"Seul\",\"seoul\":\"Seul\",\n  \"beijing\":\"Pequim\",\"peking\":\"Pequim\",\n  \"shanghai\":\"Xangai\",\n  \"prague\":\"Praga\",\n  \"budapest\":\"Budapeste\",\n  \"lisbon\":\"Lisboa\",\n  \"rome\":\"Roma\",\"roma\":\"Roma\",\n  \"madrid\":\"Madri\",\n  \"milan\":\"Milão\",\n  \"vienna\":\"Viena\",\n  \"zurich\":\"Zurique\",\n  \"athens\":\"Atenas\",\n  \"stockholm\":\"Estocolmo\",\n  \"copenhagen\":\"Copenhague\",\n  \"warsaw\":\"Varsóvia\",\n  \"berlin\":\"Berlim\",\n  \"amsterdam\":\"Amsterdã\",\n  \"paris\":\"Paris\",\n  \"london\":\"Londres\",\n  \"new york\":\"Nova Iorque\",\"nueva york\":\"Nova Iorque\",\"nyc\":\"Nova Iorque\",\n  \"los angeles\":\"Los Angeles\",\"la\":\"Los Angeles\",\n  \"san francisco\":\"São Francisco\",\"sf\":\"São Francisco\",\n  \"mexico city\":\"Cidade do México\",\"ciudad de mexico\":\"Cidade do México\",\n  \"singapore\":\"Singapura\",\n  \"jakarta\":\"Jacarta\",\n  \"johannesburg\":\"Joanesburgo\",\"joburg\":\"Joanesburgo\",\"joanesburgo\":\"Joanesburgo\",\n  \"cape town\":\"Cidade do Cabo\",\n  \"nairobi\":\"Nairobi\",\n  \"ho chi minh city\":\"Ho Chi Minh\",\"saigon\":\"Ho Chi Minh\",\"saigão\":\"Ho Chi Minh\",\n  \"hanoi\":\"Hanói\",\n  \"bali\":\"Canggu\",\n  \"sydney\":\"Sydney\",\n  \"melbourne\":\"Melbourne\",\n  \"auckland\":\"Auckland\",\n  \"buenos aires\":\"Buenos Aires\",\n  \"rio\":\"Rio de Janeiro\",\"rio de janeiro\":\"Rio de Janeiro\",\n  \"sao paulo\":\"São Paulo\",\"sampa\":\"São Paulo\",\n  \"bogota\":\"Bogotá\",\"bogotá\":\"Bogotá\",\n  \"medellin\":\"Medellín\",\"medellín\":\"Medellín\",\n  \"kuala lumpur\":\"Kuala Lumpur\",\"kl\":\"Kuala Lumpur\",\n  \"hong kong\":\"Hong Kong\",\n  \"toronto\":\"Toronto\",\"vancouver\":\"Vancouver\",\"montreal\":\"Montreal\",\n  \"dubai\":\"Dubai\",\"abu dhabi\":\"Abu Dhabi\",\n  \"doha\":\"Doha\",\"qatar\":\"Doha\",\n  \"istanbul\":\"Istambul\",\"istambul\":\"Istambul\",\n  \"bangkok\":\"Bangkok\",\n  \"chiang mai\":\"Chiang Mai\",\n  \"phuket\":\"Phuket\",\n  \"da nang\":\"Da Nang\",\n  \"phnom penh\":\"Phnom Penh\",\n  \"new delhi\":\"Nova Delhi\",\"delhi\":\"Nova Delhi\",\"nova delhi\":\"Nova Delhi\",\n  \"mumbai\":\"Mumbai\",\"bombay\":\"Mumbai\",\n  \"bangalore\":\"Bangalore\",\"bengaluru\":\"Bangalore\",\n  \"colombo\":\"Colombo\",\"kathmandu\":\"Katmandu\",\n  \"tel aviv\":\"Tel Aviv\",\"telaviv\":\"Tel Aviv\",\n  \"cairo\":\"Cairo\",\n  \"barcelona\":\"Barcelona\",\"split\":\"Split\",\"tenerife\":\"Tenerife\",\n  \"tbilisi\":\"Tbilisi\",\"taipei\":\"Taipei\",\n  \"ubud\":\"Ubud\",\"canggu\":\"Canggu\",\"denpasar\":\"Denpasar\",\n  \"osaka\":\"Osaka\",\"busan\":\"Busan\",\"cebu\":\"Cebu\",\"manila\":\"Manila\",\n  \"lima\":\"Lima\",\"santiago\":\"Santiago\",\n  \"florianopolis\":\"Florianópolis\",\"floripa\":\"Florianópolis\",\n  \"belo horizonte\":\"Belo Horizonte\",\"bhz\":\"Belo Horizonte\",\n  \"porto alegre\":\"Porto Alegre\",\"poa\":\"Porto Alegre\",\n  \"recife\":\"Recife\",\"fortaleza\":\"Fortaleza\",\"salvador\":\"Salvador\",\n  \"natal\":\"Natal\",\"curitiba\":\"Curitiba\",\"brasilia\":\"Brasília\",\n  \"manaus\":\"Manaus\",\"belem\":\"Belém\",\"goiania\":\"Goiânia\",\n  \"joao pessoa\":\"João Pessoa\",\"vitoria\":\"Vitória\",\"campinas\":\"Campinas\",\n  \"porto\":\"Porto\"\n};\n\n// ── ADICIONAR cidades extras ao lookup ───────────────────────────────\nDESTINATIONS_LOOKUP[\"Cancún\"]       = \"https://nomads.com/assets/img/places/playa-del-carmen-mexico.jpg\";\nDESTINATIONS_LOOKUP[\"Doha\"]         = \"https://images.unsplash.com/photo-1586724237569-f3d0c1dee8c6?w=600&q=80\";\nDESTINATIONS_LOOKUP[\"Istambul\"]     = \"https://images.unsplash.com/photo-1524231757912-21f4fe3a7200?w=600&q=80\";\nDESTINATIONS_LOOKUP[\"Miami\"]        = \"https://images.unsplash.com/photo-1533106418989-88406c7cc8ca?w=600&q=80\";\nDESTINATIONS_LOOKUP[\"Orlando\"]      = \"https://images.unsplash.com/photo-1575089976121-8ed7b2a54265?w=600&q=80\";\nDESTINATIONS_LOOKUP[\"Chicago\"]      = \"https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=600&q=80\";\nDESTINATIONS_LOOKUP[\"Las Vegas\"]    = \"https://images.unsplash.com/photo-1581351721010-8cf859cb14a4?w=600&q=80\";\nDESTINATIONS_LOOKUP[\"Toronto\"]      = \"https://images.unsplash.com/photo-1517935706615-2717063c2225?w=600&q=80\";\nDESTINATIONS_LOOKUP[\"Vancouver\"]    = \"https://images.unsplash.com/photo-1559511260-66a654ae982a?w=600&q=80\";\nDESTINATIONS_LOOKUP[\"Santiago\"]     = \"https://images.unsplash.com/photo-1568694250748-01aaefc2e8f1?w=600&q=80\";\nDESTINATIONS_LOOKUP[\"Lima\"]         = \"https://images.unsplash.com/photo-1531968455001-5c5272a41129?w=600&q=80\";\n\n// ── FUNÇÃO: normalizar string ─────────────────────────────────────────\nfunction norm(s) {\n  return (s || \"\")\n    .toLowerCase()\n    .normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\")\n    .replace(/[^a-z0-9 ]/g, \" \")\n    .replace(/\\s+/g, \" \")\n    .trim();\n}\n\n// ── PRÉ-PROCESSAR ALIASES com chaves normalizadas ─────────────────────\n// (garante que acentos nas chaves como \"saigão\" → \"saigao\" funcionem)\nvar ALIASES_NORM = {};\nObject.keys(ALIASES).forEach(function(k) {\n  ALIASES_NORM[norm(k)] = ALIASES[k];\n});\n\n// ── FUNÇÃO PRINCIPAL: encontrar imagem ────────────────────────────────\nfunction findDestinationImage(destino) {\n  if (!destino) return { image: FALLBACK_IMAGE, method: \"fallback\", matched: \"\" };\n\n  var input = destino.toString().trim();\n  var inputNorm = norm(input);\n\n  // Passo 1: IATA code (3 letras maiúsculas)\n  if (/^[A-Z]{3}$/.test(input.toUpperCase())) {\n    var iataCity = IATA_MAP[input.toUpperCase()];\n    if (iataCity && DESTINATIONS_LOOKUP[iataCity]) {\n      return { image: DESTINATIONS_LOOKUP[iataCity], method: \"iata\", matched: iataCity };\n    }\n  }\n\n  // Passo 2: Alias exato\n  var aliasCity = ALIASES_NORM[inputNorm];\n  if (aliasCity && DESTINATIONS_LOOKUP[aliasCity]) {\n    return { image: DESTINATIONS_LOOKUP[aliasCity], method: \"alias\", matched: aliasCity };\n  }\n\n  // Passo 3: Match exato normalizado no lookup\n  var cities = Object.keys(DESTINATIONS_LOOKUP);\n  for (var i = 0; i < cities.length; i++) {\n    if (norm(cities[i]) === inputNorm) {\n      return { image: DESTINATIONS_LOOKUP[cities[i]], method: \"exact\", matched: cities[i] };\n    }\n  }\n\n  // Passo 4: Input contém a cidade OU cidade contém o input\n  for (var i = 0; i < cities.length; i++) {\n    var cityNorm = norm(cities[i]);\n    if (inputNorm.indexOf(cityNorm) >= 0 || cityNorm.indexOf(inputNorm) >= 0) {\n      return { image: DESTINATIONS_LOOKUP[cities[i]], method: \"substring\", matched: cities[i] };\n    }\n  }\n\n  // Passo 5: Pontuação por palavras em comum\n  var inputWords = inputNorm.split(\" \").filter(function(w){ return w.length > 2; });\n  var bestScore = 0;\n  var bestCity  = null;\n  for (var i = 0; i < cities.length; i++) {\n    var cityWords = norm(cities[i]).split(\" \").filter(function(w){ return w.length > 2; });\n    var score = 0;\n    inputWords.forEach(function(w) {\n      if (cityWords.indexOf(w) >= 0) score += 2;         // palavra exata\n      cityWords.forEach(function(cw) {\n        if (cw.indexOf(w) >= 0 || w.indexOf(cw) >= 0) score += 1; // parcial\n      });\n    });\n    if (score > bestScore) { bestScore = score; bestCity = cities[i]; }\n  }\n  if (bestScore >= 2 && bestCity) {\n    return { image: DESTINATIONS_LOOKUP[bestCity], method: \"word_score(\" + bestScore + \")\", matched: bestCity };\n  }\n\n  // Passo 6: Tentar aliases com substring (ex: \"Joanesburgo\" match parcial)\n  var aliasKeys = Object.keys(ALIASES_NORM);\n  for (var i = 0; i < aliasKeys.length; i++) {\n    var ak = norm(aliasKeys[i]);\n    if (inputNorm.indexOf(ak) >= 0 || ak.indexOf(inputNorm) >= 0) {\n      var mapped = ALIASES_NORM[ak];\n      if (DESTINATIONS_LOOKUP[mapped]) {\n        return { image: DESTINATIONS_LOOKUP[mapped], method: \"alias_substring\", matched: mapped };\n      }\n    }\n  }\n\n  // Fallback: imagem genérica de viagem aérea\n  return { image: FALLBACK_IMAGE, method: \"fallback\", matched: \"\" };\n}\n\n// ── EXECUÇÃO ──────────────────────────────────────────────────────────\nvar input = $input.first().json;\n\n// Pega destino do nó anterior (compatível com o nó EXTRAI INFOS)\nvar destino = input.destino || input.destino_iata || input.destination || \"\";\n\nvar result = findDestinationImage(destino);\n\nreturn [\n  {\n    json: Object.assign({}, input, {\n      image_destino:      result.image,\n      image_match_method: result.method,   // debug: como fez o match\n      image_match_city:   result.matched   // debug: cidade que casou\n    })\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4144,
+        2320
+      ],
+      "id": "ed22051d-85f7-46da-aea9-0e4445ba325e",
+      "name": "Code in JavaScript1 - EXTRAI INFOS"
+    },
+    {
+      "parameters": {
+        "tableId": "HISTORICO_WHATSAPP",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "origin",
+              "fieldValue": "={{ $('Code in JavaScript1 - EXTRAI INFOS').first().json.origem }}"
+            },
+            {
+              "fieldId": "destination",
+              "fieldValue": "={{ $('Code in JavaScript1 - EXTRAI INFOS').first().json.destino }}"
+            },
+            {
+              "fieldId": "departure_date",
+              "fieldValue": "={{ $('Code in JavaScript1 - EXTRAI INFOS').first().json.datas_ida }}"
+            },
+            {
+              "fieldId": "return_date",
+              "fieldValue": "={{ $('Code in JavaScript1 - EXTRAI INFOS').first().json.datas_volta }}"
+            },
+            {
+              "fieldId": "milhas_ida",
+              "fieldValue": "={{ $('Code in JavaScript1 - EXTRAI INFOS').first().json.milhas_ida }}"
+            },
+            {
+              "fieldId": "milhas_volta",
+              "fieldValue": "={{ $('Code in JavaScript1 - EXTRAI INFOS').first().json.milhas_volta }}"
+            },
+            {
+              "fieldId": "dinheiro_ida",
+              "fieldValue": "={{ $('Code in JavaScript1 - EXTRAI INFOS').first().json.valor_ida }}"
+            },
+            {
+              "fieldId": "dinheiro_volta",
+              "fieldValue": "={{ $('Code in JavaScript1 - EXTRAI INFOS').first().json.valor_volta }}"
+            },
+            {
+              "fieldId": "dinheiro_total",
+              "fieldValue": "={{ $('Code in JavaScript1 - EXTRAI INFOS').first().json.valor_ida_e_volta }}"
+            },
+            {
+              "fieldId": "taxa_total",
+              "fieldValue": "={{ $('Code in JavaScript1 - EXTRAI INFOS').first().json.valor_taxas }}"
+            },
+            {
+              "fieldId": "programa",
+              "fieldValue": "={{ $('Code in JavaScript1 - EXTRAI INFOS').first().json.programa_mais_vantajoso }}"
+            },
+            {
+              "fieldId": "airline",
+              "fieldValue": "={{ $('Code in JavaScript1 - EXTRAI INFOS').item.json.cia_aerea }}"
+            },
+            {
+              "fieldId": "cabine",
+              "fieldValue": "={{ $('Code in JavaScript1 - EXTRAI INFOS').first().json.cabine }}"
+            },
+            {
+              "fieldId": "original_msg_id",
+              "fieldValue": "={{ $('Webhook').first().json.body.messageId }}"
+            },
+            {
+              "fieldId": "unique_id",
+              "fieldValue": "={{ $('GERA ID ÚNICO2').item.json.uniqueId }}"
+            },
+            {
+              "fieldId": "data_e_hora",
+              "fieldValue": "={{ $now.setZone('America/Sao_Paulo') }}"
+            },
+            {
+              "fieldId": "zaap_id",
+              "fieldValue": "={{ $json.zaapId }}"
+            },
+            {
+              "fieldId": "grupo",
+              "fieldValue": "={{ $('Code in JavaScript - Faz o JSON').item.json.phone }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -2080,
+        2240
+      ],
+      "id": "53bc0588-8735-4200-a5fe-e1659f22cc04",
+      "name": "Create a row1 - ADD NO HISTÓRICO",
+      "executeOnce": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "KeVeu9g1crObPWyr",
+          "name": "Supabase Dash Buscavoo"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "ALERTA PP TEMP"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -4432,
+        2160
+      ],
+      "id": "62af5ffe-6c85-4d32-a1c0-e218446da031",
+      "name": "Get many rows - PUXA DATAS",
+      "credentials": {
+        "supabaseApi": {
+          "id": "KeVeu9g1crObPWyr",
+          "name": "Supabase Dash Buscavoo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code node — parse do retorno do OpenAI Responses (formato: resp_xxx)\n\n// 1) pegar o texto onde o JSON está\nconst raw = $json;\n\nconst txt =\n  raw?.[0]?.output?.[0]?.content?.[0]?.text ??\n  raw?.output?.[0]?.content?.[0]?.text ??\n  raw?.[0]?.output_text ??                // alguns nodes \"simplify\"\n  raw?.output_text ??\n  raw?.[0]?.text ??\n  raw?.text ??\n  \"\";\n\nlet text = String(txt || \"\").trim();\n\nif (!text) {\n  return [{ json: { error: \"Texto do GPT vazio\", raw } }];\n}\n\n// 2) limpar markdown ```json ``` se existir\ntext = text.replace(/```json/gi, \"```\").replace(/```/g, \"\").trim();\n\n// 3) isolar JSON entre chaves (se tiver qualquer texto antes/depois)\nconst first = text.indexOf(\"{\");\nconst last = text.lastIndexOf(\"}\");\nif (first !== -1 && last !== -1 && last > first) {\n  text = text.slice(first, last + 1);\n}\n\n// 4) parse\ntry {\n  const obj = JSON.parse(text);\n  return [{ json: obj }];\n} catch (e) {\n  return [{\n    json: {\n      error: \"Falha no JSON.parse\",\n      message: e.message,\n      text_extraido: text,\n      raw_preview: JSON.stringify(raw).slice(0, 4000),\n    }\n  }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3840,
+        1872
+      ],
+      "id": "cc37bb9b-8140-490c-aeee-2d0d6cd98524",
+      "name": "Code in JavaScript - Parse JSON"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "74d4f9ba-4256-424f-992c-e82cc71f7ccd",
+              "leftValue": "={{ $json.output[0].content[0].text }}",
+              "rightValue": "NÃO É ALERTA DE VOO",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -4128,
+        1888
+      ],
+      "id": "905c248e-08b9-4415-b65f-2cd21f6f6f2c",
+      "name": "If2 - É ALERTA"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a8b81493-c198-4779-a934-f91daae80aac",
+                    "leftValue": "={{ $json.regiao_origem }}",
+                    "rightValue": "=Sudeste",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Sudeste"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "8c78c732-2eac-4ff6-8f53-cf1982756328",
+                    "leftValue": "={{ $json.regiao_origem }}",
+                    "rightValue": "Sul",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Sul"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2207ec25-6e20-4da6-8260-46bcb1636b53",
+                    "leftValue": "={{ $json.regiao_origem }}",
+                    "rightValue": "Norte",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Norte"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "9e479885-575e-4f9e-84d7-f6c57189ce79",
+                    "leftValue": "={{ $json.regiao_origem }}",
+                    "rightValue": "Nordeste",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Nordeste"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2dcbd778-c7dd-42c3-9b2d-5e3af7be0dc0",
+                    "leftValue": "={{ $json.regiao_origem }}",
+                    "rightValue": "Centro-oeste",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Centro-oeste"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -3216,
+        1824
+      ],
+      "id": "f8557578-1ccd-4891-b38c-c67c8cfc4764",
+      "name": "Separa Origem do Alerta1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "72412a0a-d024-40c2-903d-91b3b52c873b",
+              "leftValue": "={{ $json.valor_ida_e_volta }}",
+              "rightValue": 50,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -3808,
+        2224
+      ],
+      "id": "012e4066-3680-4b97-bfd7-9a90ef1eecae",
+      "name": "If6 - valor zerado?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code Node — MONTA FORMATAÇÃO (econômica / executiva etc) com fallback para SOMENTE IDA\n// Entrada: saída do node \"Code in JavaScript1 - EXTRAI INFOS\"\n\nconst data = $('Code in JavaScript1 - EXTRAI INFOS').first().json || {};\n\n// ===================== UTILS =====================\nfunction safeStr(v, fallback = \"\") {\n  return (v ?? \"\").toString().trim() || fallback;\n}\n\nfunction upperCity(v) {\n  return safeStr(v).toUpperCase();\n}\n\nfunction fmtIntBR(n) {\n  const num = Number(n || 0);\n  return num.toLocaleString(\"pt-BR\", { maximumFractionDigits: 0 });\n}\n\nfunction fmtMoneyBR(n) {\n  const num = Number(n || 0);\n  return num.toLocaleString(\"pt-BR\", { minimumFractionDigits: 0, maximumFractionDigits: 0 });\n}\n\nfunction fmtMoneyBR2(n) {\n  const num = Number(n || 0);\n  return num.toLocaleString(\"pt-BR\", { minimumFractionDigits: 2, maximumFractionDigits: 2 });\n}\n\nfunction uniq(list) {\n  return [...new Set((list || []).map(x => String(x).trim()).filter(Boolean))];\n}\n\nfunction sortDates(list) {\n  return (list || []).slice().sort((a, b) => {\n    const [d1, m1, y1] = String(a).split(\"/\").map(Number);\n    const [d2, m2, y2] = String(b).split(\"/\").map(Number);\n    return new Date(y1, m1 - 1, d1) - new Date(y2, m2 - 1, d2);\n  });\n}\n\nfunction formatDatesBlock(dates) {\n  const sorted = sortDates(uniq(dates));\n  if (!sorted.length) return \"\";\n  return sorted.map(d => `🗓 ${d}`).join(\"\\n\");\n}\n\n// ===================== DADOS NORMALIZADOS =====================\nconst origem = safeStr(data.origem, \"ORIGEM\");\nconst destino = safeStr(data.destino, \"DESTINO\");\nconst cia = safeStr(data.cia_aerea, \"CIA\");\nconst programa = safeStr(data.programa_mais_vantajoso, \"PROGRAMA\");\n\nconst datasIda = Array.isArray(data.datas_ida) ? data.datas_ida : [];\nconst datasVolta = Array.isArray(data.datas_volta) ? data.datas_volta : [];\n\nconst milhasIda = Number(data.milhas_ida || 0);\nconst milhasVolta = Number(data.milhas_volta || 0);\n\nconst valorIda = Number(data.valor_ida || 0);\nconst valorVolta = Number(data.valor_volta || 0);\nconst valorIdaEVolta = Number(data.valor_ida_e_volta || 0);\n\nconst valorTaxas = Number(data.valor_taxas || 0);\n\n// ===================== REGRA: SOMENTE IDA? =====================\n// Considera one-way se:\n// - não tem datas de volta OU\n// - milhas_volta = 0 OU\n// - valor_volta = 0 E datasVolta vazio\nconst isOneWay =\n  !uniq(datasVolta).length ||\n  milhasVolta <= 0 ||\n  (valorVolta <= 0 && !uniq(datasVolta).length);\n\n// Totais conforme tipo\nconst totalValue = isOneWay ? valorIda : (valorIdaEVolta || (valorIda + valorVolta));\nconst taxesSuffix = (valorTaxas && valorTaxas > 0) ? `+ ${fmtMoneyBR2(valorTaxas)} em txs` : \"+ txs\";\n\n// ===================== TEMPLATE =====================\nconst header =\n  `*${upperCity(origem)}* ✈️ *${upperCity(destino)}*\\n` +\n  `Cia: ${cia}\\n` +\n  `Programa: ${programa}\\n\\n`;\n\nconst idaBlock =\n  `*Ida:* 🛫\\n` +\n  `✅ ${fmtIntBR(milhasIda)} milhas ou R$ ${fmtMoneyBR(valorIda)}\\n\\n` +\n  `${formatDatesBlock(datasIda)}\\n\\n`;\n\nlet voltaBlock = \"\";\nif (!isOneWay) {\n  voltaBlock =\n    `*Volta:* 🛬\\n` +\n    `✅ ${fmtIntBR(milhasVolta)} milhas ou R$ ${fmtMoneyBR(valorVolta)}\\n\\n` +\n    `${formatDatesBlock(datasVolta)}\\n\\n`;\n}\n\nconst totalBlock =\n  `*Valor total:* R$ ${fmtMoneyBR(totalValue)} ${taxesSuffix}\\n\\n` +\n  `Obs.: Os valores acima poderão ser modificados a qualquer instante, a critério exclusivo da companhia aérea.`;\n\nconst formattedMessage = header + idaBlock + voltaBlock + totalBlock;\n\n// ===================== OUTPUT =====================\nreturn [\n  {\n    json: {\n      formattedMessage\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3472,
+        2240
+      ],
+      "id": "56132183-d045-47b7-ba0f-8b4a051e0084",
+      "name": "Code in JavaScript2 - MONTA FORMATAÇÃO ECONÔMICA"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code Node — monta payload final para Z-API (novo formato simples)\n\n// ===== INPUT =====\nconst formattedMessage = String($input.first().json.formattedMessage || \"\");\n\n// telefone do grupo (fixo ou vindo do webhook, se preferir)\nconst phone = \"120363424275054435-group\";\n\n// ✅ NÃO escapar \\n — Z-API aceita quebra real de linha\n// se em algum ponto veio com \"\\\\n\", converte pra quebra real\nconst message = $('Code in JavaScript2 - MONTA FORMATAÇÃO EXECUTIVA').first().json.formattedMessage.replace(/\\\\n/g, \"\\n\");\n\n// ===== PAYLOAD FINAL =====\nconst payload = {\n  phone,\n  message\n};\n\nreturn [\n  {\n    json: payload\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2480,
+        2240
+      ],
+      "id": "9001e299-a62d-4909-aa42-c140d4c58578",
+      "name": "Code in JavaScript1 - Faz o JSON"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code Node — Gera ID Único (simplificado) a partir da SAÍDA do node \"Code in JavaScript1 - EXTRAI INFOS\"\n// Formato: ORI-DEST-PROG-MI-MV-PRIMEIRA_IDA-PRIMEIRA_VOLTA\n\n// ===================== INPUT (SAÍDA DO NODE EXTRAI INFOS) =====================\nconst data = $('Code in JavaScript1 - EXTRAI INFOS').first().json || {};\n\n// ===================== UTILS =====================\nfunction normalize3(city) {\n  return (city || \"XXX\")\n    .normalize(\"NFD\")\n    .replace(/[\\u0300-\\u036f]/g, \"\")     // remove acentos\n    .toUpperCase()\n    .replace(/[^A-Z]/g, \"\")             // só letras\n    .slice(0, 3);\n}\n\nfunction normalizeProgram(p) {\n  return (p || \"PROG\")\n    .toUpperCase()\n    .replace(/\\s+/g, \"\")\n    .replace(/[^A-Z0-9]/g, \"\");         // remove símbolos (&, +, etc.)\n}\n\nfunction sortDates(list) {\n  return (list || []).slice().sort((a, b) => {\n    const [d1, m1, y1] = String(a).split(\"/\").map(Number);\n    const [d2, m2, y2] = String(b).split(\"/\").map(Number);\n    return new Date(y1, m1 - 1, d1) - new Date(y2, m2 - 1, d2);\n  });\n}\n\nfunction uniq(list) {\n  return [...new Set((list || []).map(x => String(x).trim()).filter(Boolean))];\n}\n\n// ===================== EXTRAÇÃO =====================\nconst origem = (data.origem || \"ORIGEM\").trim();\nconst destino = (data.destino || \"DESTINO\").trim();\n\nconst programa = (data.programa_mais_vantajoso || \"PROGRAMA\").trim();\n\nconst milhasIda = Number(data.milhas_ida || 0);\nconst milhasVolta = Number(data.milhas_volta || 0);\n\n// datas (ordenadas + sem duplicar)\nconst datasIda = sortDates(uniq(data.datas_ida || []));\nconst datasVolta = sortDates(uniq(data.datas_volta || []));\n\n// pega somente a PRIMEIRA data (já ordenada)\nconst primeiraIda = datasIda[0] || \"00/00/00\";\nconst primeiraVolta = datasVolta[0] || \"00/00/00\";\n\n// ===================== ID FINAL =====================\n// ORI-DEST-PROG-MI-MV-PRIMEIRA_IDA-PRIMEIRA_VOLTA\nconst id = `${normalize3(origem)}-${normalize3(destino)}-${normalizeProgram(programa)}-${milhasIda}-${milhasVolta}-${primeiraIda}-${primeiraVolta}`;\n\n// ===================== OUTPUT =====================\nreturn [\n  {\n    json: {\n      uniqueId: id\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3248,
+        2240
+      ],
+      "id": "7721f4b2-098d-4d73-b25d-1d8ced859a73",
+      "name": "GERA ID ÚNICO2"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "HISTORICO_WHATSAPP",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "unique_id",
+              "keyValue": "={{ $json.uniqueId }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -2992,
+        2224
+      ],
+      "id": "bca577f1-9fb9-4ad8-a41f-050ab813f3ee",
+      "name": "Get a row",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "KeVeu9g1crObPWyr",
+          "name": "Supabase Dash Buscavoo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "82679c2f-65ee-418a-87bd-3cadfdddde35",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -2768,
+        2224
+      ],
+      "id": "1d21a201-7d83-485d-a77f-ba84e0b32044",
+      "name": "If2 - Já foi enviado?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4c4d6a61-9c2a-4fa2-a2e7-7131587d1370",
+              "leftValue": "={{ $json.body.text.message }}",
+              "rightValue": "Rota",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "b7468d09-e77f-4954-858c-14380ece4126",
+              "leftValue": "={{ $json.body.text.message }}",
+              "rightValue": "Dados do alerta",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -4864,
+        2176
+      ],
+      "id": "10747a7a-bb2b-4a0f-84eb-13a5f99f32e2",
+      "name": "If2 - É Alerta?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.z-api.io/instances/3C2B278BD4D7204928061285D50F79D8/token/A92AC20D10F4FFA9DDE8EA6C/send-carousel",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Client-Token",
+              "value": "F507c107beb014d48b3ee4134c03ef882S"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\": \"{{ $json.phone }}\",\n  \"message\": \"Oferta Encontrada!\",\n  \"carousel\": [\n    {\n      \"text\": \"{{ $json.message.replace(/\\n/g, \"\\\\n\") }}\",\n      \"image\": \"https://images.unsplash.com/photo-1654575998971-4f467c8a89c1?q=80&w=2832&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D\",\n      \"buttons\": [\n        {\n          \"id\": \"1\",\n          \"label\": \"Comprar com Milhas\",\n          \"url\": \"{{ $('Code in JavaScript1 - EXTRAI INFOS').item.json.link_programa }}\",\n          \"type\": \"URL\"\n        },\n        {\n          \"id\": \"2\",\n          \"label\": \"Emitir via WhatsApp\",\n          \"url\": \"{{ $('Code in JavaScript1 - EXTRAI INFOS').item.json.link_whatsapp }}\",\n          \"type\": \"URL\"\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2272,
+        2240
+      ],
+      "id": "fa7f4030-9cc7-4889-a871-5dbb166947c0",
+      "name": "BOTÃO"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n.goldenfunnels.com.br",
+            "user-agent": "Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:111.0) Gecko/20100101 Firefox/111.0",
+            "content-length": "1360",
+            "accept-encoding": "gzip",
+            "content-type": "application/json; charset=utf-8",
+            "origin": "https://api.z-api.io",
+            "server": "Z-API",
+            "x-forwarded-for": "137.131.156.143",
+            "x-forwarded-host": "n8n.goldenfunnels.com.br",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "cfeaadf5b17d",
+            "x-real-ip": "137.131.156.143",
+            "z-api-token": "511467D29E55D791A8DEBB5C"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "isStatusReply": false,
+            "chatLid": null,
+            "connectedPhone": "5522981750678",
+            "waitingMessage": false,
+            "isEdit": false,
+            "isGroup": true,
+            "isNewsletter": false,
+            "instanceId": "3D04B2D57ED960CD957B72B70F2FFCF9",
+            "messageId": "3EB0A9C5BB9FC404DDDA98",
+            "phone": "120363402577156880-group",
+            "fromMe": false,
+            "momment": 1772834416000,
+            "status": "RECEIVED",
+            "chatName": "Mundo Ultra #916",
+            "senderPhoto": "https://pps.whatsapp.net/v/t61.24694-24/534416780_1172271177719417_1165376296890661458_n.jpg?ccb=11-4&oh=01_Q5Aa4AHmVdJThpIg13lKEvzLK98aO6JEQLSCqtSrNa_l4Ze6Uw&oe=69B8634D&_nc_sid=5e03e0&_nc_cat=111",
+            "senderName": "Passageiro de Primeira",
+            "photo": "https://pps.whatsapp.net/v/t61.24694-24/565971897_1458284971954273_8472392723774403460_n.jpg?ccb=11-4&oh=01_Q5Aa3wElkGRlTpogIPNr3mG_wSPp6iFoUnO_RyfBhHQ-njINFQ&oe=69B83CAD&_nc_sid=5e03e0&_nc_cat=100",
+            "broadcast": false,
+            "participantPhone": "5511952132534",
+            "participantLid": null,
+            "forwarded": false,
+            "type": "ReceivedCallback",
+            "fromApi": false,
+            "image": {
+              "imageUrl": "https://f004.backblazeb2.com/file/temp-file-download/instances/3D04B2D57ED960CD957B72B70F2FFCF9/3EB0A9C5BB9FC404DDDA98/aE6-6n7h9hzJvYq47kqQpQ==.jpg",
+              "thumbnailUrl": "https://f004.backblazeb2.com/file/temp-file-download/instances/3D04B2D57ED960CD957B72B70F2FFCF9/3EB0A9C5BB9FC404DDDA98/aE6-6n7h9hzJvYq47kqQpQ==.jpg",
+              "caption": "",
+              "mimeType": "image/jpeg",
+              "viewOnce": false,
+              "width": 0,
+              "height": 0
+            }
+          },
+          "webhookUrl": "https://n8n.goldenfunnels.com.br/webhook/726b557b-b2f7-412f-8078-544346921c23",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Execution Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Separa Origem do Alerta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Separa Origem do Alerta": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If2 - É Alerta?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Get many rows - PUXA DATAS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "If2 - É ALERTA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete a row": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript1 - EXTRAI INFOS": {
+      "main": [
+        [
+          {
+            "node": "Delete a row",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If6 - valor zerado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows - PUXA DATAS": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1 - EXTRAI INFOS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript - Parse JSON": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2 - É ALERTA": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript - Parse JSON",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Create a row1 - ADD NO HISTÓRICO": {
+      "main": [
+        [],
+        []
+      ]
+    },
+    "Separa Origem do Alerta1": {
+      "main": [
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    "Create a row": {
+      "main": [
+        []
+      ]
+    },
+    "If6 - valor zerado?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Code in JavaScript2 - MONTA FORMATAÇÃO ECONÔMICA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2 - MONTA FORMATAÇÃO ECONÔMICA": {
+      "main": [
+        [
+          {
+            "node": "GERA ID ÚNICO2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1 - Faz o JSON": {
+      "main": [
+        [
+          {
+            "node": "BOTÃO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GERA ID ÚNICO2": {
+      "main": [
+        [
+          {
+            "node": "Get a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row": {
+      "main": [
+        [
+          {
+            "node": "If2 - Já foi enviado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2 - Já foi enviado?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Code in JavaScript1 - Faz o JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2 - É Alerta?": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BOTÃO": {
+      "main": [
+        [
+          {
+            "node": "Create a row1 - ADD NO HISTÓRICO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "47178fab-7636-424e-83cb-83027fd15e4a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1c21fafa253eb67f794938c4f6a19e065926eddc9256505856c878f1f08c5dfe"
+  },
+  "id": "7tBL163mh2CuFNsa6BCre",
+  "tags": [
+    {
+      "updatedAt": "2026-01-16T16:34:27.675Z",
+      "createdAt": "2026-01-16T16:34:27.675Z",
+      "id": "w3yNuUZakqIDiMKt",
+      "name": "ALERTA DE VOO"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+[
+    {
+        "headers": {
+            "host": "n8n.goldenfunnels.com.br",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36",
+            "content-length": "1236",
+            "accept-encoding": "gzip",
+            "content-type": "application/json; charset=utf-8",
+            "origin": "https://api.z-api.io",
+            "server": "Z-API",
+            "x-forwarded-for": "167.234.234.132",
+            "x-forwarded-host": "n8n.goldenfunnels.com.br",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "cfeaadf5b17d",
+            "x-real-ip": "167.234.234.132",
+            "z-api-token": "BDDDB907B97CCEA6CC82BF86"
+        },
+        "params": {},
+        "query": {},
+        "body": {
+            "isStatusReply": false,
+            "chatLid": null,
+            "connectedPhone": "5521988152715",
+            "waitingMessage": false,
+            "isEdit": false,
+            "isGroup": true,
+            "isNewsletter": false,
+            "instanceId": "3EFBE0C90B2EA1E00B39423ADE795445",
+            "messageId": "A5F1FD9DF50B62602A3A4A9B929681F6",
+            "phone": "120363422957161316-group",
+            "fromMe": false,
+            "momment": 1773083670000,
+            "status": "RECEIVED",
+            "chatName": "Mundo Ultra #949",
+            "senderPhoto": "https://pps.whatsapp.net/v/t61.24694-24/617618411_1862197458503765_3333395063673059108_n.jpg?ccb=11-4&oh=01_Q5Aa4AHGCNR_Zofb4YGQ990uzojyvdlf2SnWJtFCSIGpWKqbig&oe=69BC3900&_nc_sid=5e03e0&_nc_cat=103",
+            "senderName": "Passageiro de Primeira",
+            "photo": null,
+            "broadcast": false,
+            "participantPhone": "5511936204434",
+            "participantLid": null,
+            "messageExpirationSeconds": 7776000,
+            "forwarded": false,
+            "type": "ReceivedCallback",
+            "fromApi": false,
+            "image": {
+                "imageUrl": "https://f004.backblazeb2.com/file/temp-file-download/instances/3EFBE0C90B2EA1E00B39423ADE795445/A5F1FD9DF50B62602A3A4A9B929681F6/DCootCSFfYclXFfQ9UGqzg==.jpg",
+                "thumbnailUrl": "https://f004.backblazeb2.com/file/temp-file-download/instances/3EFBE0C90B2EA1E00B39423ADE795445/A5F1FD9DF50B62602A3A4A9B929681F6/DCootCSFfYclXFfQ9UGqzg==.jpg",
+                "caption": "",
+                "mimeType": "image/jpeg",
+                "viewOnce": false,
+                "width": 1166,
+                "height": 1166
+            }
+        },
+        "webhookUrl": "https://n8n.goldenfunnels.com.br/webhook/passageirodeprimeira",
+        "executionMode": "production"
+    }
+]
