@@ -10,30 +10,45 @@ export async function getDashboardHtml(req: Request, res: Response) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Passagem Premium API Dashboard</title>
+    <title>Passagem Secreta - Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background: #000000; color: #f3f4f6; }
+        body { font-family: 'Inter', sans-serif; background: #0a0a0a; color: #f3f4f6; }
         .glass-panel {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.04);
             backdrop-filter: blur(24px);
             -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 20px;
+        }
+        .glass-panel-header {
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 16px 24px;
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: default;
         }
         .apple-gradient-text {
             background: linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+        .brand-gradient {
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
         .btn-glass {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.1);
             transition: all 0.3s ease;
         }
         .btn-glass:hover {
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.15);
             transform: scale(1.02);
         }
         .btn-primary {
@@ -46,60 +61,154 @@ export async function getDashboardHtml(req: Request, res: Response) {
             box-shadow: 0 6px 20px rgba(0, 122, 255, 0.23);
             transform: translateY(-2px);
         }
-        .log-error { border-left-color: #ff3b30; }
-        .log-success { border-left-color: #34c759; }
-        .log-info { border-left-color: #007aff; }
-        
+        .section-toggle {
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.3s ease;
+        }
+        .section-toggle.collapsed { transform: rotate(-90deg); }
+        .collapsible-body {
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, padding 0.3s ease;
+            overflow: hidden;
+        }
+        .collapsible-body.collapsed {
+            max-height: 0 !important;
+            opacity: 0;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes pulse-glow { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.25; } }
+        .ambient-orb { animation: pulse-glow 8s ease-in-out infinite; }
     </style>
 </head>
-<body class="min-h-screen relative overflow-hidden flex flex-col">
-    <!-- Ambient glowing orbs imitating visionOS/macOS Sonoma -->
-    <div class="absolute top-[-15%] left-[-10%] w-[500px] h-[500px] bg-blue-600 rounded-full mix-blend-screen filter blur-[120px] opacity-30 z-0 pointer-events-none"></div>
-    <div class="absolute bottom-[-15%] right-[-10%] w-[500px] h-[500px] bg-purple-600 rounded-full mix-blend-screen filter blur-[120px] opacity-30 z-0 pointer-events-none"></div>
+<body class="min-h-screen relative overflow-auto flex flex-col">
+    <!-- Ambient glowing orbs -->
+    <div class="absolute top-[-20%] left-[-15%] w-[600px] h-[600px] bg-blue-600 rounded-full mix-blend-screen filter blur-[150px] opacity-15 z-0 pointer-events-none ambient-orb"></div>
+    <div class="absolute bottom-[-20%] right-[-15%] w-[600px] h-[600px] bg-purple-600 rounded-full mix-blend-screen filter blur-[150px] opacity-15 z-0 pointer-events-none ambient-orb" style="animation-delay: 4s;"></div>
+    <div class="absolute top-[40%] right-[10%] w-[400px] h-[400px] bg-indigo-500 rounded-full mix-blend-screen filter blur-[150px] opacity-10 z-0 pointer-events-none ambient-orb" style="animation-delay: 2s;"></div>
 
-    <div class="container mx-auto px-6 py-10 relative z-10 max-w-7xl flex flex-col h-screen">
-        <header class="flex justify-between items-center mb-8 animate-slide-up" style="animation-delay: 0.1s; opacity: 0;">
-            <div>
-                <h1 class="text-4xl font-bold apple-gradient-text tracking-tight">Passagem Premium</h1>
-                <p class="text-gray-400 mt-2 text-sm font-medium tracking-wide uppercase">Monitoring & Analytics Console</p>
+    <div class="container mx-auto px-6 py-8 relative z-10 max-w-7xl flex flex-col min-h-screen">
+        <header class="flex justify-between items-center mb-10 animate-slide-up" style="animation-delay: 0.1s; opacity: 0;">
+            <div class="flex items-center gap-4">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-extrabold brand-gradient tracking-tight">Passagem Secreta</h1>
+                    <p class="text-gray-500 text-xs font-medium tracking-wider mt-0.5">Painel de Controle</p>
+                </div>
             </div>
-            <button onclick="fetchData()" class="btn-glass px-5 py-2.5 rounded-xl text-sm font-medium text-white flex items-center gap-2 shadow-lg">
+            <button onclick="fetchData(); fetchMilheiros(); fetchDestinations();" class="btn-glass px-5 py-2.5 rounded-xl text-sm font-medium text-gray-300 flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                Atualizar Painel
+                Atualizar
             </button>
         </header>
         
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1 min-h-0 pb-6 animate-slide-up" style="animation-delay: 0.2s; opacity: 0;">
             <!-- Left Column: Queue -->
-            <div class="lg:col-span-7 glass-panel p-8 flex flex-col overflow-hidden shadow-2xl">
-                <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-xl font-semibold text-white flex items-center gap-2">
-                        <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                        Fila de Processamento <span class="text-sm font-normal text-gray-400 ml-2">(Últimas 24h)</span>
+            <div class="lg:col-span-7 glass-panel flex flex-col overflow-hidden">
+                <div class="glass-panel-header">
+                    <h2 class="text-base font-semibold text-white flex items-center gap-2.5">
+                        <span class="w-2 h-2 rounded-full bg-blue-400 shadow-sm shadow-blue-400/50"></span>
+                        Fila de Processamento <span class="text-xs font-normal text-gray-500 ml-1">(24h)</span>
                     </h2>
                 </div>
-                <div id="queue-container" class="flex-1 overflow-y-auto pr-3 space-y-4 scrollbar-thin">
-                    <div class="flex items-center justify-center h-full text-gray-500">
-                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <div id="queue-container" class="flex-1 overflow-y-auto p-5 space-y-3 scrollbar-thin">
+                    <div class="flex items-center justify-center h-full text-gray-500 text-sm">
+                        <svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        Buscando rede...
+                        Carregando...
                     </div>
                 </div>
             </div>
-            
-            <!-- Right Column: Logs -->
-            <div class="lg:col-span-5 glass-panel p-8 flex flex-col overflow-hidden shadow-2xl">
-                <h2 class="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-                    <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                    Live Logs
-                </h2>
-                <div id="logs-container" class="flex-1 overflow-y-auto pr-3 space-y-3 scrollbar-thin">
-                    <div class="flex items-center justify-center h-full text-gray-500">Aguardando eventos...</div>
+
+            <!-- Right Column: Logs (Collapsible) -->
+            <div class="lg:col-span-5 glass-panel flex flex-col overflow-hidden">
+                <div class="glass-panel-header cursor-pointer" onclick="toggleLogs()">
+                    <h2 class="text-base font-semibold text-white flex items-center gap-2.5">
+                        <span class="w-2 h-2 rounded-full bg-purple-400 shadow-sm shadow-purple-400/50"></span>
+                        Live Logs
+                        <span id="logs-count" class="text-xs font-normal text-gray-500 ml-1"></span>
+                    </h2>
+                    <svg id="logs-toggle-icon" class="w-4 h-4 text-gray-500 section-toggle transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </div>
+                <div id="logs-body" class="collapsible-body flex-1 overflow-y-auto p-5 space-y-2.5 scrollbar-thin" style="max-height: 600px;">
+                    <div class="flex items-center justify-center h-32 text-gray-500 text-sm">Aguardando eventos...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Milheiro Management Section -->
+        <div class="glass-panel mb-6 animate-slide-up overflow-hidden" style="animation-delay: 0.3s; opacity: 0;">
+            <div class="glass-panel-header">
+                <h2 class="text-base font-semibold text-white flex items-center gap-2.5">
+                    <span class="w-2 h-2 rounded-full bg-green-400 shadow-sm shadow-green-400/50"></span>
+                    Programas de Pontos & Milheiros
+                </h2>
+            </div>
+
+            <div class="p-6">
+            <!-- Add Form -->
+            <div class="flex gap-3 mb-5">
+                <input id="new-programa" type="text" placeholder="Nome do programa" class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-colors" />
+                <input id="new-preco" type="number" step="0.5" placeholder="R$/milheiro" class="w-36 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-colors" />
+                <button onclick="addMilheiro()" class="btn-primary text-sm text-white font-semibold px-6 py-2.5 rounded-xl flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    Adicionar
+                </button>
+            </div>
+
+            <!-- Programs Table -->
+            <div id="milheiros-container" class="overflow-y-auto max-h-[500px] scrollbar-thin">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-white/10">
+                            <th class="text-left text-[11px] text-gray-500 uppercase tracking-wider font-semibold pb-3 pl-4">Programa</th>
+                            <th class="text-left text-[11px] text-gray-500 uppercase tracking-wider font-semibold pb-3">R$ / Milheiro</th>
+                            <th class="text-right text-[11px] text-gray-500 uppercase tracking-wider font-semibold pb-3 pr-4">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="milheiros-tbody">
+                        <tr><td colspan="3" class="text-center text-gray-500 py-8 text-sm">Carregando programas...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            </div>
+        </div>
+
+        <!-- Destination Images Section -->
+        <div id="dest-section" class="glass-panel mb-6 animate-slide-up overflow-hidden" style="animation-delay: 0.4s; opacity: 0;">
+            <div class="glass-panel-header">
+                <h2 class="text-base font-semibold text-white flex items-center gap-2.5">
+                    <span class="w-2 h-2 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50"></span>
+                    Imagens de Destinos <span id="dest-count" class="text-xs font-normal text-gray-500 ml-1"></span>
+                </h2>
+            </div>
+            <div class="p-6">
+
+            <!-- Search + Pagination Controls -->
+            <div class="flex gap-3 mb-6 items-center">
+                <input id="dest-search" type="text" placeholder="Buscar destino..." oninput="searchDestinations()" class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-colors" />
+                <div class="flex items-center gap-2">
+                    <button onclick="destPrevPage()" id="dest-prev" class="btn-glass px-3 py-2 rounded-lg text-sm text-white disabled:opacity-30" disabled>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    </button>
+                    <span id="dest-page-info" class="text-sm text-gray-400 min-w-[80px] text-center">1 / 1</span>
+                    <button onclick="destNextPage()" id="dest-next" class="btn-glass px-3 py-2 rounded-lg text-sm text-white disabled:opacity-30" disabled>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Destinations Grid -->
+            <div id="dest-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-h-[800px] overflow-y-auto scrollbar-thin pr-2">
+                <div class="col-span-full text-center text-gray-500 py-8 text-sm">Carregando destinos...</div>
+            </div>
             </div>
         </div>
     </div>
@@ -111,10 +220,10 @@ export async function getDashboardHtml(req: Request, res: Response) {
     </div>
 
     <style>
-        .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+        .scrollbar-thin::-webkit-scrollbar { width: 5px; }
         .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
-        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
     </style>
 
     <script>
@@ -123,6 +232,27 @@ export async function getDashboardHtml(req: Request, res: Response) {
             document.getElementById('toast-msg').innerText = message;
             toast.classList.remove('translate-y-20', 'opacity-0');
             setTimeout(() => { toast.classList.add('translate-y-20', 'opacity-0'); }, 4000);
+        }
+
+        // Format milheiro price: show integer if whole, otherwise 1 decimal
+        function fmtPreco(val) {
+            const n = Number(val);
+            return n % 1 === 0 ? n.toFixed(0) : n.toFixed(1);
+        }
+
+        // Toggle Logs section
+        let logsCollapsed = false;
+        function toggleLogs() {
+            logsCollapsed = !logsCollapsed;
+            const body = document.getElementById('logs-body');
+            const icon = document.getElementById('logs-toggle-icon');
+            if (logsCollapsed) {
+                body.classList.add('collapsed');
+                icon.classList.add('collapsed');
+            } else {
+                body.classList.remove('collapsed');
+                icon.classList.remove('collapsed');
+            }
         }
 
         async function fetchData() {
@@ -191,11 +321,12 @@ export async function getDashboardHtml(req: Request, res: Response) {
         }
 
         function renderLogs(logs) {
-            const container = document.getElementById('logs-container');
+            const container = document.getElementById('logs-body');
             container.innerHTML = '';
-            
+            document.getElementById('logs-count').innerText = logs.length > 0 ? '(' + logs.length + ')' : '';
+
             if (logs.length === 0) {
-                 container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-400 text-sm">Painel de logs limpo.</div>';
+                 container.innerHTML = '<div class="flex items-center justify-center h-32 text-gray-500 text-sm">Painel de logs limpo.</div>';
                  return;
             }
 
@@ -276,7 +407,262 @@ export async function getDashboardHtml(req: Request, res: Response) {
             }
         }
 
+        // ========== Milheiro Management ==========
+        async function fetchMilheiros() {
+            try {
+                const res = await fetch('/api/milheiros');
+                const data = await res.json();
+                renderMilheiros(data);
+            } catch (err) {
+                console.error('Erro ao buscar milheiros:', err);
+            }
+        }
+
+        function renderMilheiros(list) {
+            const tbody = document.getElementById('milheiros-tbody');
+            tbody.innerHTML = '';
+
+            if (!list || list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-gray-500 py-8">Nenhum programa cadastrado.</td></tr>';
+                return;
+            }
+
+            list.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-white/5 hover:bg-white/5 transition-colors';
+                tr.setAttribute('data-programa', item.programa);
+                tr.innerHTML = \`
+                    <td class="py-3 pl-4">
+                        <span class="text-sm font-medium text-white programa-label">\${item.programa}</span>
+                    </td>
+                    <td class="py-3">
+                        <span class="text-sm text-green-400 font-semibold preco-label">R$ \${fmtPreco(item.preco_milheiro)}</span>
+                        <input type="number" step="0.5" value="\${item.preco_milheiro}" class="hidden w-28 bg-white/10 border border-blue-500/50 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none preco-input" />
+                    </td>
+                    <td class="py-3 pr-4 text-right">
+                        <button onclick="startEditMilheiro(this)" class="btn-edit text-xs text-blue-400 hover:text-blue-300 font-medium px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/20 transition-colors mr-2">Editar</button>
+                        <button onclick="saveMilheiro(this)" class="btn-save hidden text-xs text-green-400 hover:text-green-300 font-medium px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20 hover:bg-green-500/20 transition-colors mr-2">Salvar</button>
+                        <button onclick="cancelEditMilheiro(this)" class="btn-cancel hidden text-xs text-gray-400 hover:text-gray-300 font-medium px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors mr-2">Cancelar</button>
+                        <button onclick="deleteMilheiro('\${item.programa}')" class="text-xs text-red-400 hover:text-red-300 font-medium px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-colors">Excluir</button>
+                    </td>
+                \`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function startEditMilheiro(btn) {
+            const tr = btn.closest('tr');
+            tr.querySelector('.preco-label').classList.add('hidden');
+            tr.querySelector('.preco-input').classList.remove('hidden');
+            tr.querySelector('.btn-edit').classList.add('hidden');
+            tr.querySelector('.btn-save').classList.remove('hidden');
+            tr.querySelector('.btn-cancel').classList.remove('hidden');
+            tr.querySelector('.preco-input').focus();
+        }
+
+        function cancelEditMilheiro(btn) {
+            const tr = btn.closest('tr');
+            tr.querySelector('.preco-label').classList.remove('hidden');
+            tr.querySelector('.preco-input').classList.add('hidden');
+            tr.querySelector('.btn-edit').classList.remove('hidden');
+            tr.querySelector('.btn-save').classList.add('hidden');
+            tr.querySelector('.btn-cancel').classList.add('hidden');
+        }
+
+        async function saveMilheiro(btn) {
+            const tr = btn.closest('tr');
+            const programa = tr.getAttribute('data-programa');
+            const newPreco = tr.querySelector('.preco-input').value;
+
+            try {
+                const res = await fetch('/api/milheiros', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ programa, preco_milheiro: Number(newPreco) })
+                });
+                if (res.ok) {
+                    showToast(\`\${programa} atualizado para R$ \${fmtPreco(newPreco)}\`);
+                    fetchMilheiros();
+                } else {
+                    const err = await res.json();
+                    alert('Erro: ' + (err.error || 'Falha ao atualizar'));
+                }
+            } catch(e) {
+                alert('Erro na conexão.');
+            }
+        }
+
+        async function addMilheiro() {
+            const programa = document.getElementById('new-programa').value.trim();
+            const preco = document.getElementById('new-preco').value;
+
+            if (!programa || !preco) {
+                alert('Preencha o nome do programa e o valor do milheiro.');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/milheiros', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ programa, preco_milheiro: Number(preco) })
+                });
+                if (res.ok) {
+                    showToast(\`Programa "\${programa}" adicionado com sucesso!\`);
+                    document.getElementById('new-programa').value = '';
+                    document.getElementById('new-preco').value = '';
+                    fetchMilheiros();
+                } else {
+                    const err = await res.json();
+                    alert('Erro: ' + (err.error || 'Falha ao adicionar'));
+                }
+            } catch(e) {
+                alert('Erro na conexão.');
+            }
+        }
+
+        async function deleteMilheiro(programa) {
+            if (!confirm(\`Tem certeza que deseja excluir "\${programa}"?\`)) return;
+
+            try {
+                const res = await fetch('/api/milheiros', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ programa })
+                });
+                if (res.ok) {
+                    showToast(\`"\${programa}" removido.\`);
+                    fetchMilheiros();
+                } else {
+                    const err = await res.json();
+                    alert('Erro: ' + (err.error || 'Falha ao excluir'));
+                }
+            } catch(e) {
+                alert('Erro na conexão.');
+            }
+        }
+
+        // ========== Destination Images Management ==========
+        let destCurrentPage = 1;
+        let destTotalPages = 1;
+        let destSearchTimeout = null;
+
+        async function fetchDestinations(page, search) {
+            page = page || destCurrentPage;
+            search = search !== undefined ? search : (document.getElementById('dest-search').value || '');
+            try {
+                const params = new URLSearchParams({ page: String(page), limit: '30' });
+                if (search) params.set('search', search);
+                const res = await fetch('/api/destinations?' + params.toString());
+                const data = await res.json();
+                destCurrentPage = data.page;
+                destTotalPages = data.totalPages;
+                document.getElementById('dest-count').innerText = '(' + data.total + ' destinos)';
+                document.getElementById('dest-page-info').innerText = data.totalPages > 0 ? (data.page + ' / ' + data.totalPages) : '0 / 0';
+                document.getElementById('dest-prev').disabled = data.page <= 1;
+                document.getElementById('dest-next').disabled = data.page >= data.totalPages;
+                renderDestinations(data.destinations);
+            } catch (err) {
+                console.error('Erro ao buscar destinos:', err);
+            }
+        }
+
+        function renderDestinations(list) {
+            const grid = document.getElementById('dest-grid');
+            grid.innerHTML = '';
+            if (!list || list.length === 0) {
+                grid.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8 text-sm">Nenhum destino encontrado.</div>';
+                return;
+            }
+            list.forEach(function(item) {
+                const card = document.createElement('div');
+                card.className = 'group relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-cyan-500/30 transition-all hover:bg-white/10';
+                card.setAttribute('data-cidade', item.cidade);
+                const overrideBadge = item.overridden ? '<span class="absolute top-2 right-2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 z-10">Editado</span>' : '';
+                card.innerHTML =
+                    overrideBadge +
+                    '<div class="relative w-full h-32 bg-black/40 overflow-hidden">' +
+                        '<img src="' + item.url + '" alt="' + item.cidade + '" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" loading="lazy" onerror="this.src=\\'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=600&q=80\\'" />' +
+                    '</div>' +
+                    '<div class="p-3">' +
+                        '<h4 class="text-sm font-semibold text-white truncate mb-2">' + item.cidade + '</h4>' +
+                        '<div class="flex gap-1">' +
+                            '<input type="text" value="' + item.url + '" class="dest-url-input hidden flex-1 bg-white/10 border border-cyan-500/30 rounded-lg px-2 py-1 text-[10px] text-gray-300 focus:outline-none" />' +
+                            '<button onclick="startEditDest(this)" class="dest-edit-btn w-full text-[10px] text-cyan-400 hover:text-cyan-300 font-medium py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/20 transition-colors">Editar URL</button>' +
+                            '<button onclick="saveDest(this)" class="dest-save-btn hidden text-[10px] text-green-400 hover:text-green-300 font-medium px-2 py-1 rounded-lg bg-green-500/10 border border-green-500/20 hover:bg-green-500/20 transition-colors whitespace-nowrap">Salvar</button>' +
+                            '<button onclick="cancelEditDest(this)" class="dest-cancel-btn hidden text-[10px] text-gray-400 hover:text-gray-300 font-medium px-2 py-1 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors whitespace-nowrap">X</button>' +
+                        '</div>' +
+                    '</div>';
+                grid.appendChild(card);
+            });
+        }
+
+        function startEditDest(btn) {
+            const card = btn.closest('[data-cidade]');
+            card.querySelector('.dest-url-input').classList.remove('hidden');
+            card.querySelector('.dest-edit-btn').classList.add('hidden');
+            card.querySelector('.dest-save-btn').classList.remove('hidden');
+            card.querySelector('.dest-cancel-btn').classList.remove('hidden');
+            card.querySelector('.dest-url-input').focus();
+            card.querySelector('.dest-url-input').select();
+        }
+
+        function cancelEditDest(btn) {
+            const card = btn.closest('[data-cidade]');
+            card.querySelector('.dest-url-input').classList.add('hidden');
+            card.querySelector('.dest-edit-btn').classList.remove('hidden');
+            card.querySelector('.dest-save-btn').classList.add('hidden');
+            card.querySelector('.dest-cancel-btn').classList.add('hidden');
+        }
+
+        async function saveDest(btn) {
+            const card = btn.closest('[data-cidade]');
+            const cidade = card.getAttribute('data-cidade');
+            const newUrl = card.querySelector('.dest-url-input').value.trim();
+            if (!newUrl) { alert('URL vazia'); return; }
+            try {
+                const res = await fetch('/api/destinations', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cidade: cidade, url: newUrl })
+                });
+                if (res.ok) {
+                    showToast('Imagem de "' + cidade + '" atualizada!');
+                    // Update preview immediately
+                    card.querySelector('img').src = newUrl;
+                    cancelEditDest(btn);
+                    // Add override badge if not present
+                    if (!card.querySelector('.bg-cyan-500\\/30')) {
+                        card.insertAdjacentHTML('afterbegin', '<span class="absolute top-2 right-2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 z-10">Editado</span>');
+                    }
+                } else {
+                    const err = await res.json();
+                    alert('Erro: ' + (err.error || 'Falha ao salvar'));
+                }
+            } catch(e) {
+                alert('Erro na conexao.');
+            }
+        }
+
+        function searchDestinations() {
+            if (destSearchTimeout) clearTimeout(destSearchTimeout);
+            destSearchTimeout = setTimeout(function() {
+                destCurrentPage = 1;
+                fetchDestinations(1);
+            }, 300);
+        }
+
+        function destPrevPage() {
+            if (destCurrentPage > 1) fetchDestinations(destCurrentPage - 1);
+        }
+
+        function destNextPage() {
+            if (destCurrentPage < destTotalPages) fetchDestinations(destCurrentPage + 1);
+        }
+
         fetchData();
+        fetchMilheiros();
+        fetchDestinations(1, '');
         // Ping de atualização a cada 10s
         setInterval(fetchData, 10000);
     </script>

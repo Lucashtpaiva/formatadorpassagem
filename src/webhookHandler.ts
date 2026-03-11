@@ -1,8 +1,10 @@
 import { Request, Response } from 'express';
 import { supabase } from './supabaseClient';
-import { processImageWithGPT, generateFinalOfferPayload } from './openaiClient';
-import { findDestinationImage, buildFormattedMessage, buildWhatsAppLink } from './formatting';
+import { processImageWithGPT, generateFinalOfferPayload, parseCaptionOffer } from './openaiClient';
+import { findDestinationImage, buildFormattedMessage, buildWhatsAppLink, isBrazilianOrigin } from './formatting';
 import { logEvent } from './logger';
+import { loadMilheiroConfig } from './milheiroHandler';
+import { getDestinationOverrides } from './destinationHandler';
 
 export async function handleWhatsAppWebhook(req: Request, res: Response) {
   try {
@@ -18,11 +20,23 @@ export async function handleWhatsAppWebhook(req: Request, res: Response) {
 
     const { phone, chatName, text, image } = payload;
 
+    // ===== "Alertas Premium" single-caption flow =====
+    if (chatName && chatName.includes('Alertas Premium') && image && image.caption) {
+      await logEvent(phone, 'RECEIVED_CAPTION', `Received Alertas Premium caption for ${chatName}`, { caption: image.caption });
+
+      try {
+        await processAlertaPremiumCaption(phone, chatName, image.caption);
+      } catch (e: any) {
+        await logEvent(phone, 'ERROR', `Error processing Alertas Premium caption`, { error: e.message || String(e) });
+      }
+      return res.status(200).send('OK');
+    }
+
     let msgType = '';
     let content = '';
     let extractedData = null;
 
-    // Process based on type
+    // Process based on type (original 3-message flow)
     if (image && image.imageUrl) {
       msgType = 'image';
       content = image.imageUrl;
@@ -118,14 +132,36 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
 
     const { link_programa, destino } = finalData;
 
-    // Custom formatting exactly derived from n8n Script 2
-    const formattedMessage = buildFormattedMessage(finalData);
+    // Validate: only process flights departing from Brazil
+    if (!isBrazilianOrigin(finalData.origem)) {
+      await logEvent(phone, 'OFFER_DISCARDED', `Offer discarded: origin "${finalData.origem}" is not in Brazil`, { finalData });
+      await supabase.from('whatsapp_offers_temp').update({ processed: true }).in('id', messageIds);
+      return;
+    }
 
-    // Custom Image matcher derived from n8n Script 1
-    const destinationImage = findDestinationImage(destino);
+    // Validate: never send flights with zero miles
+    const milhasIda = Number(finalData.milhas_ida || 0);
+    const milhasVolta = Number(finalData.milhas_volta || 0);
+    const datasVolta = Array.isArray(finalData.datas_volta) ? finalData.datas_volta.filter(Boolean) : [];
+    const isOneWay = !datasVolta.length || milhasVolta <= 0;
 
-    // Generate strict WhatsApp pre-filled text link
-    const waLink = buildWhatsAppLink(finalData);
+    if (milhasIda <= 0) {
+      await logEvent(phone, 'OFFER_DISCARDED', `Offer discarded: milhas_ida is zero`, { finalData });
+      await supabase.from('whatsapp_offers_temp').update({ processed: true }).in('id', messageIds);
+      return;
+    }
+    if (!isOneWay && milhasVolta <= 0) {
+      await logEvent(phone, 'OFFER_DISCARDED', `Offer discarded: milhas_volta is zero on round-trip`, { finalData });
+      await supabase.from('whatsapp_offers_temp').update({ processed: true }).in('id', messageIds);
+      return;
+    }
+
+    // Load milheiro config from database
+    const milheiroPorPrograma = await loadMilheiroConfig();
+
+    const formattedMessage = buildFormattedMessage(finalData, milheiroPorPrograma);
+    const destinationImage = findDestinationImage(destino, getDestinationOverrides());
+    const waLink = buildWhatsAppLink(finalData, milheiroPorPrograma);
 
     // Construct exactly as requested
     const destinationPayload = {
@@ -176,5 +212,86 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
     } catch (e: any) {
       await logEvent(phone, 'ERROR', `Failed to send POST to final webhook`, { error: e.message || String(e) });
     }
+  }
+}
+
+// ===== Alertas Premium: single caption → full offer =====
+async function processAlertaPremiumCaption(phone: string, chatName: string, caption: string) {
+  await logEvent(phone, 'PROCESSING_FINAL_OFFER', `Parsing Alertas Premium caption for ${chatName}`, { source: 'alertas_premium' });
+
+  const finalData = await parseCaptionOffer(caption);
+
+  if (!finalData) {
+    await logEvent(phone, 'OFFER_DISCARDED', `Caption could not be parsed`, { caption });
+    return;
+  }
+
+  // Validate: only process flights departing from Brazil
+  if (!isBrazilianOrigin(finalData.origem)) {
+    await logEvent(phone, 'OFFER_DISCARDED', `Alertas Premium offer discarded: origin "${finalData.origem}" is not in Brazil`, { finalData });
+    return;
+  }
+
+  // Validate: never send flights with zero miles
+  const milhasIda = Number(finalData.milhas_ida || 0);
+  const milhasVolta = Number(finalData.milhas_volta || 0);
+  const datasVolta = Array.isArray(finalData.datas_volta) ? finalData.datas_volta.filter(Boolean) : [];
+  const isOneWay = !datasVolta.length || milhasVolta <= 0;
+
+  if (milhasIda <= 0) {
+    await logEvent(phone, 'OFFER_DISCARDED', `Alertas Premium offer discarded: milhas_ida is zero`, { finalData });
+    return;
+  }
+  if (!isOneWay && milhasVolta <= 0) {
+    await logEvent(phone, 'OFFER_DISCARDED', `Alertas Premium offer discarded: milhas_volta is zero on round-trip`, { finalData });
+    return;
+  }
+
+  const { destino, link_programa } = finalData;
+
+  const milheiroPorPrograma = await loadMilheiroConfig();
+  const formattedMessage = buildFormattedMessage(finalData, milheiroPorPrograma);
+  const destinationImage = findDestinationImage(destino, getDestinationOverrides());
+  const waLink = buildWhatsAppLink(finalData, milheiroPorPrograma);
+
+  const destinationPayload = {
+    phone: phone,
+    message: "Oferta Encontrada!",
+    carousel: [
+      {
+        text: formattedMessage,
+        image: destinationImage,
+        buttons: [
+          {
+            id: "1",
+            label: "Comprar com Milhas",
+            url: link_programa || "https://www.smiles.com.br",
+            type: "URL"
+          },
+          {
+            id: "2",
+            label: "Emitir via WhatsApp",
+            url: waLink,
+            type: "URL"
+          }
+        ]
+      }
+    ]
+  };
+
+  try {
+    const webhookUrl = process.env.DESTINATION_WEBHOOK_URL;
+    if (webhookUrl) {
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(destinationPayload)
+      });
+      await logEvent(phone, 'OFFER_PROCESSED', `Alertas Premium offer sent to Destination Webhook`, { payload: destinationPayload });
+    } else {
+      await logEvent(phone, 'ERROR', `DESTINATION_WEBHOOK_URL is missing!`, { payload: destinationPayload });
+    }
+  } catch (e: any) {
+    await logEvent(phone, 'ERROR', `Failed to send Alertas Premium offer to webhook`, { error: e.message || String(e) });
   }
 }

@@ -9,7 +9,7 @@ const openai = new OpenAI({
 export async function processImageWithGPT(imageUrl: string): Promise<any> {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4.1',
       messages: [
         {
           role: 'user',
@@ -67,23 +67,94 @@ Responda com JSON sem blocos de código markdown (não use \`\`\`)`
     if (output === 'NÃO É ALERTA DE VOO') {
       return null;
     }
-    
+
     // Parse JSON safely
+    let parsed: any;
     const jsonMatch = output.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+      parsed = JSON.parse(jsonMatch[0]);
+    } else {
+      parsed = JSON.parse(output);
     }
-    return JSON.parse(output);
+
+    // Safeguard: validate required fields exist
+    if (!parsed.origem || !parsed.destino || !Array.isArray(parsed.datas) || parsed.datas.length === 0) {
+      console.warn('GPT image extraction missing required fields, discarding:', parsed);
+      return null;
+    }
+
+    return parsed;
   } catch (error) {
     console.error('Error processing image with GPT:', error);
     return null;
   }
 }
 
+export async function parseCaptionOffer(caption: string): Promise<any> {
+    try {
+        const response = await openai.chat.completions.create({
+            model: 'gpt-4.1',
+            messages: [
+                {
+                    role: 'system',
+                    content: `Você é um assistente especializado em extrair dados de ofertas de voos a partir de mensagens de alerta do WhatsApp. Extraia todas as informações relevantes e retorne um JSON estruturado. Ignore links, promoções de agências, e textos promocionais.`
+                },
+                {
+                    role: 'user',
+                    content: `Extraia os dados desta oferta de voo:
+
+${caption}
+
+Retorne um JSON com exatamente estes campos:
+- origem (cidade de origem, sem código de aeroporto)
+- destino (cidade de destino, sem código de aeroporto)
+- cia_aerea (companhia aérea)
+- programa_mais_vantajoso (nome do programa de milhas, ex: Smiles, LATAM Pass, Iberia Club)
+- milhas_ida (número inteiro, sem pontos ou vírgulas)
+- milhas_volta (número inteiro, sem pontos ou vírgulas. Se não houver volta, use 0)
+- valor_taxas (número em reais, se mencionado. Se não houver, use 0)
+- datas_ida (array de datas no formato "dd/mm/aa")
+- datas_volta (array de datas no formato "dd/mm/aa")
+- link_programa (URL do programa de milhas se houver, caso contrário string vazia)
+
+Regras:
+- Use nomes de cidades em português, não códigos IATA.
+- Milhas devem ser números inteiros (ex: "17.500 milhas" = 17500, "19,300 milhas" = 19300).
+- Ignore links de agências externas (alertadevoos, flypass, etc).
+- Responda SOMENTE o JSON válido, sem blocos markdown.`
+                }
+            ],
+            response_format: { type: "json_object" }
+        });
+
+        const output = response.choices[0].message.content || '{}';
+        const parsed = JSON.parse(output);
+
+        // Safeguard: validate required fields and reasonable values
+        if (!parsed.origem || !parsed.destino || !parsed.cia_aerea) {
+          console.warn('GPT caption parse missing required fields:', parsed);
+          return null;
+        }
+        const milhasIda = Number(parsed.milhas_ida || 0);
+        if (milhasIda <= 0 || milhasIda > 500000) {
+          console.warn('GPT caption parse: milhas_ida out of range:', milhasIda);
+          return null;
+        }
+        // Ensure arrays
+        if (!Array.isArray(parsed.datas_ida)) parsed.datas_ida = [];
+        if (!Array.isArray(parsed.datas_volta)) parsed.datas_volta = [];
+
+        return parsed;
+    } catch (error) {
+        console.error('Error parsing caption with GPT:', error);
+        return null;
+    }
+}
+
 export async function generateFinalOfferPayload(textMessage: string, extractedImagesData: any[]): Promise<any> {
     try {
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o',
+            model: 'gpt-4.1',
             messages: [
                 {
                     role: 'system',
@@ -118,7 +189,24 @@ Atenção: responda SOMENTE o JSON válido, sem blocos markdown (\`\`\`).`
         });
 
         const output = response.choices[0].message.content || '{}';
-        return JSON.parse(output);
+        const parsed = JSON.parse(output);
+
+        // Safeguard: validate required fields
+        if (!parsed.origem || !parsed.destino) {
+          console.warn('GPT final payload missing origem/destino:', parsed);
+          return {};
+        }
+        const milhasIda = Number(parsed.milhas_ida || 0);
+        const milhasVolta = Number(parsed.milhas_volta || 0);
+        if (milhasIda <= 0 || milhasIda > 500000) {
+          console.warn('GPT final payload: milhas_ida out of range:', milhasIda);
+          return {};
+        }
+        // Ensure arrays
+        if (!Array.isArray(parsed.datas_ida)) parsed.datas_ida = [];
+        if (!Array.isArray(parsed.datas_volta)) parsed.datas_volta = [];
+
+        return parsed;
     } catch (error) {
         console.error('Error generating final payload with GPT:', error);
         return {};
