@@ -30,6 +30,8 @@ Tarefas:
 {
   "origem": "<cidade de origem>",
   "destino": "<cidade de destino final>",
+  "iata_origem": "<código IATA de 3 letras da origem, se visível na imagem>",
+  "iata_destino": "<código IATA de 3 letras do destino FINAL, se visível na imagem>",
   "região": "região da cidade brasileira",
   "bandeira": "bandeira no formato emoji do país de destino",
   "internacional": "TRUE or FALSE",
@@ -38,12 +40,16 @@ Tarefas:
 }
 
 Regras:
-- Use apenas nomes de cidades, sem códigos de aeroporto (não use GRU, CUN, LIS etc).
+- Use nomes de cidades nos campos "origem" e "destino".
+- Se códigos de aeroporto IATA (3 letras como GRU, MAD, OPO) estiverem visíveis na imagem, extraia-os nos campos "iata_origem" e "iata_destino".
+- O iata_origem é o PRIMEIRO código da rota. O iata_destino é o ÚLTIMO código da rota (ignore escalas no meio).
+- Exemplo: "São Paulo GRU - Madrid MAD - Porto OPO" → iata_origem = "GRU", iata_destino = "OPO".
+- Se não houver códigos IATA visíveis, use string vazia "" para iata_origem e iata_destino.
 - Converta todas as datas para o formato "dd/mm/aa".
 - Não considere a cidade de escala no meio, caso tenha.
 - Se houver múltiplos meses, junte todas as datas em uma única lista.
 - Não inclua texto fora do JSON.
-- Não inclua campos extras.
+- Não inclua campos extras além dos listados acima.
 
 3) Se a imagem NÃO contiver informações claras de voo (origem, destino e datas), responda EXATAMENTE com:
 
@@ -109,7 +115,7 @@ Retorne um JSON com exatamente estes campos:
 - origem (cidade de origem, sem código de aeroporto)
 - destino (cidade de destino, sem código de aeroporto)
 - cia_aerea (companhia aérea)
-- programa_mais_vantajoso (nome do programa de milhas, ex: Smiles, LATAM Pass, Iberia Club)
+- programa_mais_vantajoso (nome do programa de milhas. Use EXATAMENTE um destes nomes: LATAM Pass, Smiles, Azul Fidelidade, Azul Interline, Iberia Plus, TAP Miles&Go, AAdvantage, ConnectMiles, Privilege Club, Flying Blue, Mileage Plan, Flying Club, SkyMiles, MileagePlus, Aeroplan, Suma Miles, LifeMiles)
 - milhas_ida (número inteiro, sem pontos ou vírgulas)
 - milhas_volta (número inteiro, sem pontos ou vírgulas. Se não houver volta, use 0)
 - valor_taxas (número em reais, se mencionado. Se não houver, use 0)
@@ -151,6 +157,57 @@ Regras:
     }
 }
 
+export async function extractIataFromImage(imageUrl: string): Promise<{ iata_origem: string; iata_destino: string } | null> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4.1',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `Analise esta imagem de oferta de voo e extraia SOMENTE os códigos de aeroporto IATA (3 letras) da rota.
+
+Exemplos de rota: "CGR - CTG", "GRU - MAD - OPO", "BSB - LIS"
+
+Retorne um JSON com:
+{
+  "iata_origem": "<PRIMEIRO código IATA da rota>",
+  "iata_destino": "<ÚLTIMO código IATA da rota (destino final, ignorando escalas)>"
+}
+
+Se não encontrar códigos IATA visíveis, retorne:
+{"iata_origem": "", "iata_destino": ""}
+
+Responda SOMENTE o JSON, sem blocos de código markdown.`
+            },
+            {
+              type: 'image_url',
+              image_url: { url: imageUrl }
+            }
+          ]
+        }
+      ],
+      max_tokens: 200,
+    });
+
+    const output = response.choices[0].message.content?.trim() || '';
+    const jsonMatch = output.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    const iataRegex = /^[A-Z]{3}$/;
+    return {
+      iata_origem: iataRegex.test((parsed.iata_origem || '').toUpperCase()) ? parsed.iata_origem.toUpperCase() : '',
+      iata_destino: iataRegex.test((parsed.iata_destino || '').toUpperCase()) ? parsed.iata_destino.toUpperCase() : '',
+    };
+  } catch (error) {
+    console.error('Error extracting IATA from image:', error);
+    return null;
+  }
+}
+
 export async function generateFinalOfferPayload(textMessage: string, extractedImagesData: any[]): Promise<any> {
     try {
         const response = await openai.chat.completions.create({
@@ -172,7 +229,7 @@ Por favor, analise esses dados e me devolva um único JSON com os seguintes camp
 - origem
 - destino
 - cia_aerea
-- programa_mais_vantajoso (ex: Iberia Club, Smiles, etc)
+- programa_mais_vantajoso (use EXATAMENTE um destes nomes: LATAM Pass, Smiles, Azul Fidelidade, Azul Interline, Iberia Plus, TAP Miles&Go, AAdvantage, ConnectMiles, Privilege Club, Flying Blue, Mileage Plan, Flying Club, SkyMiles, MileagePlus, Aeroplan, Suma Miles, LifeMiles)
 - milhas_ida (número, extraído do texto)
 - milhas_volta (número, extraído do texto)
 - valor_ida_e_volta (número, se tiver no texto)
@@ -205,6 +262,16 @@ Atenção: responda SOMENTE o JSON válido, sem blocos markdown (\`\`\`).`
         // Ensure arrays
         if (!Array.isArray(parsed.datas_ida)) parsed.datas_ida = [];
         if (!Array.isArray(parsed.datas_volta)) parsed.datas_volta = [];
+
+        // Propagate IATA codes from image extracted data (trust image extraction over GPT reconsolidation)
+        let iataOrigem = '';
+        let iataDestino = '';
+        for (const imgData of extractedImagesData) {
+          if (imgData?.iata_origem && !iataOrigem) iataOrigem = imgData.iata_origem;
+          if (imgData?.iata_destino && !iataDestino) iataDestino = imgData.iata_destino;
+        }
+        parsed.iata_origem = iataOrigem;
+        parsed.iata_destino = iataDestino;
 
         return parsed;
     } catch (error) {

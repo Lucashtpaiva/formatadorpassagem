@@ -38,10 +38,11 @@ const PROGRAMA_ALIASES: Record<string, string> = {
   'iberia': 'Iberia Plus', 'iberia plus': 'Iberia Plus', 'avios': 'Iberia Plus',
   'avios program': 'Iberia Plus', 'british airways executive club': 'Iberia Plus',
   'executive club': 'Iberia Plus', 'iag loyalty': 'Iberia Plus',
+  'iberia club': 'Iberia Plus', 'finnair plus': 'Iberia Plus', 'finnair': 'Iberia Plus',
   // TAP
   'tap': 'TAP Miles&Go', 'tap miles&go': 'TAP Miles&Go', 'miles&go': 'TAP Miles&Go',
   'tap air portugal miles&go': 'TAP Miles&Go', 'tap portugal': 'TAP Miles&Go',
-  'tap miles and go': 'TAP Miles&Go',
+  'tap miles and go': 'TAP Miles&Go', 'tap milesgo': 'TAP Miles&Go',
   // American Airlines
   'aa': 'AAdvantage', 'aadvantage': 'AAdvantage', 'american airlines aadvantage': 'AAdvantage',
   'american aadvantage': 'AAdvantage', 'american airlines': 'AAdvantage',
@@ -51,20 +52,22 @@ const PROGRAMA_ALIASES: Record<string, string> = {
   // Qatar
   'qatar': 'Privilege Club', 'privilege club': 'Privilege Club',
   'qatar airways privilege club': 'Privilege Club', 'qatar privilege club': 'Privilege Club',
+  'qatar airways': 'Privilege Club',
   // Air France / KLM
   'airfrance': 'Flying Blue', 'air france': 'Flying Blue', 'klm': 'Flying Blue',
   'flying blue': 'Flying Blue', 'air france flying blue': 'Flying Blue',
   'klm flying blue': 'Flying Blue', 'af-klm flying blue': 'Flying Blue',
-  'airfrance e klm': 'Flying Blue',
+  'airfrance e klm': 'Flying Blue', 'air france e klm': 'Flying Blue',
   // Alaska
   'alaska': 'Mileage Plan', 'mileage plan': 'Mileage Plan',
   'alaska airlines mileage plan': 'Mileage Plan', 'alaska mileage plan': 'Mileage Plan',
+  'alaska airlines': 'Mileage Plan',
   // Virgin Atlantic
   'virgin atlantic': 'Flying Club', 'flying club': 'Flying Club',
   'virgin atlantic flying club': 'Flying Club', 'virgin flying club': 'Flying Club',
   // Delta
   'delta': 'SkyMiles', 'skymiles': 'SkyMiles', 'delta skymiles': 'SkyMiles',
-  'delta air lines skymiles': 'SkyMiles',
+  'delta air lines skymiles': 'SkyMiles', 'delta air lines': 'SkyMiles',
   // United
   'united': 'MileagePlus', 'united airlines': 'MileagePlus', 'mileageplus': 'MileagePlus',
   'united mileageplus': 'MileagePlus', 'united airlines mileageplus': 'MileagePlus',
@@ -77,6 +80,48 @@ const PROGRAMA_ALIASES: Record<string, string> = {
   // Avianca
   'avianca': 'LifeMiles', 'lifemiles': 'LifeMiles', 'avianca lifemiles': 'LifeMiles',
   'avianca plus lifemiles': 'LifeMiles',
+};
+
+// URLs oficiais dos programas de milhas (usada quando GPT não retorna link ou retorna encurtado)
+export const PROGRAMA_LINKS: Record<string, string> = {
+  'LATAM Pass': 'https://www.latampass.com.br',
+  'Smiles': 'https://www.smiles.com.br',
+  'Azul Fidelidade': 'https://www.tudoazul.com.br',
+  'Azul Interline': 'https://www.voeazul.com.br',
+  'Iberia Plus': 'https://www.iberia.com',
+  'TAP Miles&Go': 'https://www.flytap.com',
+  'AAdvantage': 'https://www.aa.com',
+  'ConnectMiles': 'https://www.copaair.com',
+  'Privilege Club': 'https://www.qatarairways.com',
+  'Flying Blue': 'https://www.flyingblue.com',
+  'Mileage Plan': 'https://www.alaskaair.com',
+  'Flying Club': 'https://www.virginatlantic.com',
+  'SkyMiles': 'https://www.delta.com',
+  'MileagePlus': 'https://www.united.com',
+  'Aeroplan': 'https://www.aircanada.com',
+  'Suma Miles': 'https://www.aireuropa.com',
+  'LifeMiles': 'https://www.lifemiles.com',
+};
+
+// Todos os aliases agrupados por programa canônico (para exibição no dashboard)
+export const PROGRAMA_ALIASES_DISPLAY: Record<string, string[]> = {
+  'LATAM Pass': ['Latam', 'Latam Pass', 'Latam Airlines', 'Latam Fidelidade'],
+  'Smiles': ['Smiles', 'Smiles Gol', 'GOL Smiles'],
+  'Azul Fidelidade': ['Azul', 'Azul Fidelidade', 'TudoAzul', 'Tudo Azul'],
+  'Azul Interline': ['Azul Interline', 'Azul Linhas Aéreas Interline'],
+  'Iberia Plus': ['Iberia', 'AVIOS', 'Iberia Plus', 'Iberia Club', 'British Airways Executive Club', 'Avios Program', 'IAG Loyalty', 'Finnair Plus'],
+  'TAP Miles&Go': ['TAP', 'Miles&Go', 'TAP Air Portugal Miles&Go', 'TAP Portugal'],
+  'AAdvantage': ['AA', 'AAdvantage', 'American Airlines AAdvantage', 'American AAdvantage'],
+  'ConnectMiles': ['Copa', 'ConnectMiles', 'Copa Airlines ConnectMiles', 'Copa ConnectMiles'],
+  'Privilege Club': ['Qatar', 'Privilege Club', 'Qatar Airways Privilege Club', 'Qatar Privilege Club'],
+  'Flying Blue': ['AirFrance e KLM', 'Flying Blue', 'Air France Flying Blue', 'KLM Flying Blue', 'AF-KLM Flying Blue'],
+  'Mileage Plan': ['Alaska', 'Alaska Airlines Mileage Plan', 'Mileage Plan', 'Alaska Mileage Plan'],
+  'Flying Club': ['Virgin Atlantic', 'Flying Club', 'Virgin Atlantic Flying Club', 'Virgin Flying Club'],
+  'SkyMiles': ['Delta', 'SkyMiles', 'Delta SkyMiles', 'Delta Air Lines SkyMiles'],
+  'MileagePlus': ['United', 'United Airlines', 'MileagePlus', 'United MileagePlus', 'United Airlines MileagePlus'],
+  'Aeroplan': ['AirCanada', 'Aeroplan', 'Air Canada Aeroplan', 'AC Aeroplan'],
+  'Suma Miles': ['AirEuropa', 'Suma Miles', 'Air Europa Suma', 'Suma', 'Air Europa Suma Miles'],
+  'LifeMiles': ['Avianca', 'LifeMiles', 'Avianca LifeMiles', 'Avianca Plus LifeMiles'],
 };
 
 /** Recebe o nome retornado pelo GPT e normaliza para o nome canônico */

@@ -1,10 +1,12 @@
 import { Request, Response } from 'express';
 import { supabase } from './supabaseClient';
-import { processImageWithGPT, generateFinalOfferPayload, parseCaptionOffer } from './openaiClient';
-import { findDestinationImage, buildFormattedMessage, buildWhatsAppLink, isBrazilianOrigin } from './formatting';
+import { processImageWithGPT, generateFinalOfferPayload, parseCaptionOffer, extractIataFromImage } from './openaiClient';
+import { findDestinationImage, buildFormattedMessage, buildWhatsAppLink, isBrazilianOrigin, ensureHttps, resolveLinkPrograma, normalizeDatePairs } from './formatting';
+import { normalizeProgramaName } from './milheiroHandler';
 import { logEvent } from './logger';
 import { loadMilheiroConfig } from './milheiroHandler';
 import { getDestinationOverrides } from './destinationHandler';
+import { verifyOffer, saveBmResult, getBmAirline, isBmEnabled } from './buscamilhasClient';
 
 export async function handleWhatsAppWebhook(req: Request, res: Response) {
   try {
@@ -24,8 +26,38 @@ export async function handleWhatsAppWebhook(req: Request, res: Response) {
     if (chatName && chatName.includes('Alertas Premium') && image && image.caption) {
       await logEvent(phone, 'RECEIVED_CAPTION', `Received Alertas Premium caption for ${chatName}`, { caption: image.caption });
 
+      // Save to temp table so it appears in the dashboard queue
+      const { error: insertCaptionError } = await supabase
+        .from('whatsapp_offers_temp')
+        .insert([{
+          group_phone: phone,
+          chat_name: chatName || '',
+          msg_type: 'caption',
+          content: image.caption,
+          extracted_data: null,
+          processed: false,
+        }]);
+
+      let captionRowId: string | null = null;
+      if (!insertCaptionError) {
+        // Get the ID for marking processed later
+        const { data: captionRow } = await supabase
+          .from('whatsapp_offers_temp')
+          .select('id')
+          .eq('group_phone', phone)
+          .eq('msg_type', 'caption')
+          .eq('processed', false)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        captionRowId = captionRow?.[0]?.id || null;
+      }
+
       try {
-        await processAlertaPremiumCaption(phone, chatName, image.caption);
+        await processAlertaPremiumCaption(phone, chatName, image.caption, image.imageUrl);
+        // Mark as processed after successful processing
+        if (captionRowId) {
+          await supabase.from('whatsapp_offers_temp').update({ processed: true }).eq('id', captionRowId);
+        }
       } catch (e: any) {
         await logEvent(phone, 'ERROR', `Error processing Alertas Premium caption`, { error: e.message || String(e) });
       }
@@ -130,7 +162,30 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
       return;
     }
 
-    const { link_programa, destino } = finalData;
+    // Log IATA codes if extracted from images
+    if (finalData.iata_origem || finalData.iata_destino) {
+      await logEvent(phone, 'IATA_EXTRACTED', `IATA extraídos das imagens: ${finalData.iata_origem || '?'} → ${finalData.iata_destino || '?'}`, { iata_origem: finalData.iata_origem, iata_destino: finalData.iata_destino });
+    }
+
+    // Normalize dates for 3-message flow: all dates are "available dates", create ida/volta pairs with 5-day gap
+    const normalized = normalizeDatePairs(finalData.datas_ida || [], finalData.datas_volta || [], 5);
+    finalData.datas_ida = normalized.datas_ida;
+    finalData.datas_volta = normalized.datas_volta;
+
+    const { destino } = finalData;
+    const programaCanonical = normalizeProgramaName(finalData.programa_mais_vantajoso || '');
+    const resolvedLink = resolveLinkPrograma(finalData.link_programa, programaCanonical);
+
+    // Detect source and cabin from chatName
+    const fonte = (chatName || '').toLowerCase().includes('alerta') ? 'Alerta de Voos' : 'Passageiro de Primeira';
+    // Detect cabin class from text message content
+    let cabine = 'Econômica'; // default
+    const textContent = (textMsg.content || '').toLowerCase();
+    if (textContent.includes('executiva') || textContent.includes('business')) {
+      cabine = 'Executiva';
+    } else if (textContent.includes('primeira classe') || textContent.includes('first class')) {
+      cabine = 'Primeira Classe';
+    }
 
     // Validate: only process flights departing from Brazil
     if (!isBrazilianOrigin(finalData.origem)) {
@@ -167,15 +222,18 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
     const destinationPayload = {
       phone: phone,
       message: "Oferta Encontrada!",
+      fonte: fonte,
+      grupo: chatName || '',
+      cabine: cabine,
       carousel: [
         {
-          text: formattedMessage, // the formatted message text (already has properly escaped \\n)
+          text: formattedMessage,
           image: destinationImage,
           buttons: [
             {
               id: "1",
               label: "Comprar com Milhas",
-              url: link_programa || "https://www.smiles.com.br",
+              url: resolvedLink,
               type: "URL"
             },
             {
@@ -188,6 +246,43 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
         }
       ]
     };
+
+    // ===== Verificação BuscaMilhas =====
+    const bmEnabled = await isBmEnabled();
+    const bmAirline = getBmAirline(programaCanonical);
+    if (bmAirline && bmEnabled) {
+      try {
+        await logEvent(phone, 'BM_VERIFICATION', `Iniciando verificação BuscaMilhas (${bmAirline})`, { programa: programaCanonical, milhasIda, milhasVolta });
+        const verification = await verifyOffer({ ...finalData, programa_mais_vantajoso: programaCanonical, cabine });
+        await saveBmResult(phone, finalData, verification);
+
+        if (verification.verified) {
+          (destinationPayload as any).verificado = true;
+          await logEvent(phone, 'BM_VERIFICATION', `BuscaMilhas: Oferta VERIFICADA`, { matchedIda: verification.matchedMilesIda, matchedVolta: verification.matchedMilesVolta });
+        } else if (verification.error && !verification.skipped) {
+          // Erro na API → envia mesmo assim (fail open)
+          (destinationPayload as any).verificado = null;
+          await logEvent(phone, 'BM_VERIFICATION', `BuscaMilhas: Erro na verificação, enviando mesmo assim`, { error: verification.error });
+        } else {
+          // Não verificado → BLOQUEIA envio
+          await logEvent(phone, 'OFFER_NOT_VERIFIED', `Oferta BLOQUEADA - não encontrada no BuscaMilhas`, {
+            milhas_esperadas_ida: milhasIda,
+            milhas_esperadas_volta: milhasVolta,
+            airline: bmAirline,
+            verification,
+          });
+          await supabase.from('whatsapp_offers_temp').update({ processed: true }).in('id', messageIds);
+          return;
+        }
+      } catch (bmErr: any) {
+        // Erro inesperado → envia mesmo assim
+        (destinationPayload as any).verificado = null;
+        await logEvent(phone, 'ERROR', `BuscaMilhas verification exception`, { error: bmErr.message || String(bmErr) });
+      }
+    } else {
+      // BuscaMilhas desativado ou programa não suportado → envia sem verificar
+      (destinationPayload as any).verificado = null;
+    }
 
     // Send to final Webhook
     try {
@@ -202,7 +297,7 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
       } else {
          await logEvent(phone, 'ERROR', `DESTINATION_WEBHOOK_URL is missing!`, { payload: destinationPayload });
       }
-      
+
       // Mark as processed
       await supabase
          .from('whatsapp_offers_temp')
@@ -216,7 +311,7 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
 }
 
 // ===== Alertas Premium: single caption → full offer =====
-async function processAlertaPremiumCaption(phone: string, chatName: string, caption: string) {
+async function processAlertaPremiumCaption(phone: string, chatName: string, caption: string, imageUrl?: string) {
   await logEvent(phone, 'PROCESSING_FINAL_OFFER', `Parsing Alertas Premium caption for ${chatName}`, { source: 'alertas_premium' });
 
   const finalData = await parseCaptionOffer(caption);
@@ -224,6 +319,20 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
   if (!finalData) {
     await logEvent(phone, 'OFFER_DISCARDED', `Caption could not be parsed`, { caption });
     return;
+  }
+
+  // Extract IATA codes from the image if available
+  if (imageUrl) {
+    try {
+      const iataData = await extractIataFromImage(imageUrl);
+      if (iataData) {
+        if (iataData.iata_origem) finalData.iata_origem = iataData.iata_origem;
+        if (iataData.iata_destino) finalData.iata_destino = iataData.iata_destino;
+        await logEvent(phone, 'IATA_EXTRACTED', `IATA extraídos da imagem Alertas Premium: ${iataData.iata_origem} → ${iataData.iata_destino}`, { iata_origem: iataData.iata_origem, iata_destino: iataData.iata_destino, imageUrl });
+      }
+    } catch (iataErr: any) {
+      console.error('Failed to extract IATA from Alertas Premium image:', iataErr);
+    }
   }
 
   // Validate: only process flights departing from Brazil
@@ -247,16 +356,22 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
     return;
   }
 
-  const { destino, link_programa } = finalData;
+  const { destino } = finalData;
+  const programaCanonical = normalizeProgramaName(finalData.programa_mais_vantajoso || '');
+  const resolvedLink = resolveLinkPrograma(finalData.link_programa, programaCanonical);
 
   const milheiroPorPrograma = await loadMilheiroConfig();
   const formattedMessage = buildFormattedMessage(finalData, milheiroPorPrograma);
   const destinationImage = findDestinationImage(destino, getDestinationOverrides());
   const waLink = buildWhatsAppLink(finalData, milheiroPorPrograma);
 
+  // Alertas Premium é sempre Econômica
   const destinationPayload = {
     phone: phone,
     message: "Oferta Encontrada!",
+    fonte: 'Alerta de Voos',
+    grupo: chatName || '',
+    cabine: 'Econômica',
     carousel: [
       {
         text: formattedMessage,
@@ -265,7 +380,7 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
           {
             id: "1",
             label: "Comprar com Milhas",
-            url: link_programa || "https://www.smiles.com.br",
+            url: resolvedLink,
             type: "URL"
           },
           {
@@ -278,6 +393,39 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
       }
     ]
   };
+
+  // ===== Verificação BuscaMilhas =====
+  const bmEnabled = await isBmEnabled();
+  const bmAirline = getBmAirline(programaCanonical);
+  if (bmAirline && bmEnabled) {
+    try {
+      await logEvent(phone, 'BM_VERIFICATION', `Iniciando verificação BuscaMilhas Alertas Premium (${bmAirline})`, { programa: programaCanonical, milhasIda, milhasVolta });
+      const verification = await verifyOffer({ ...finalData, programa_mais_vantajoso: programaCanonical, cabine: 'Econômica' });
+      await saveBmResult(phone, finalData, verification);
+
+      if (verification.verified) {
+        (destinationPayload as any).verificado = true;
+        await logEvent(phone, 'BM_VERIFICATION', `BuscaMilhas: Alertas Premium VERIFICADA`, { matchedIda: verification.matchedMilesIda, matchedVolta: verification.matchedMilesVolta });
+      } else if (verification.error && !verification.skipped) {
+        (destinationPayload as any).verificado = null;
+        await logEvent(phone, 'BM_VERIFICATION', `BuscaMilhas: Erro, enviando mesmo assim`, { error: verification.error });
+      } else {
+        await logEvent(phone, 'OFFER_NOT_VERIFIED', `Alertas Premium BLOQUEADA - não encontrada no BuscaMilhas`, {
+          milhas_esperadas_ida: milhasIda,
+          milhas_esperadas_volta: milhasVolta,
+          airline: bmAirline,
+          verification,
+        });
+        return;
+      }
+    } catch (bmErr: any) {
+      (destinationPayload as any).verificado = null;
+      await logEvent(phone, 'ERROR', `BuscaMilhas verification exception (Alertas Premium)`, { error: bmErr.message || String(bmErr) });
+    }
+  } else {
+    // BuscaMilhas desativado ou programa não suportado → envia sem verificar
+    (destinationPayload as any).verificado = null;
+  }
 
   try {
     const webhookUrl = process.env.DESTINATION_WEBHOOK_URL;

@@ -3,6 +3,7 @@ import { handleWhatsAppWebhook } from './webhookHandler';
 import { getDashboardHtml, getDashboardData, reprocessOffer } from './dashboardHandler';
 import { ensureMilheiroTable, listMilheiros, createMilheiro, updateMilheiro, deleteMilheiro } from './milheiroHandler';
 import { ensureDestinationOverridesTable, listDestinations, updateDestination, deleteDestinationOverride } from './destinationHandler';
+import { ensureBmConfigTable, searchBuscaMilhas, listBmConfig, updateBmConfig, listBmResults, getBmEnabled, toggleBmEnabled } from './buscamilhasClient';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -33,9 +34,18 @@ app.get('/api/destinations', listDestinations);
 app.put('/api/destinations', updateDestination);
 app.delete('/api/destinations', deleteDestinationOverride);
 
+// BuscaMilhas Routes
+app.post('/api/buscamilhas/search', searchBuscaMilhas);
+app.get('/api/buscamilhas/config', listBmConfig);
+app.put('/api/buscamilhas/config', updateBmConfig);
+app.get('/api/buscamilhas/results', listBmResults);
+app.get('/api/buscamilhas/enabled', getBmEnabled);
+app.put('/api/buscamilhas/enabled', toggleBmEnabled);
+
 // Ensure tables exist on startup
 ensureMilheiroTable().catch(err => console.error('Error ensuring milheiro table:', err));
 ensureDestinationOverridesTable().catch(err => console.error('Error ensuring destination overrides table:', err));
+ensureBmConfigTable().catch(err => console.error('Error ensuring buscamilhas tables:', err));
 
 // For local development, we listen to a port.
 // For Vercel, exporting the app is the recommended pattern.

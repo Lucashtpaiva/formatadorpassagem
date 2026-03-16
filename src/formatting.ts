@@ -1,7 +1,7 @@
 // =====================================================================
 // Match Imagem por Destino (Estratégias: IATA → alias → exato → substring → palavras → fallback)
 // =====================================================================
-import { normalizeProgramaName } from './milheiroHandler';
+import { normalizeProgramaName, PROGRAMA_LINKS } from './milheiroHandler';
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=600&q=80";
 
@@ -570,7 +570,7 @@ export const DESTINATIONS_LOOKUP: Record<string, string> = {
   "Praia do Forte":"https://images.unsplash.com/photo-1745681278433-4f45b29fb3c4?w=800&q=80"
 };
 
-const IATA_MAP: Record<string, string> = {
+export const IATA_MAP: Record<string, string> = {
   // Brasil — completo (~155 aeroportos comerciais)
   "AFL":"Alta Floresta","AJU":"Aracaju","AQA":"Araraquara","ARU":"Araçatuba",
   "ARX":"Aracati","ATM":"Altamira","AUX":"Araguaína","AAX":"Araxá",
@@ -754,6 +754,48 @@ Object.keys(ALIASES).forEach(k => {
   ALIASES_NORM[norm(k)] = ALIASES[k];
 });
 
+// ===== Reverse map: cidade → IATA (preferindo aeroportos principais) =====
+const PRIORITY_IATA: Record<string, string> = {
+  'sao paulo': 'GRU', 'rio de janeiro': 'GIG', 'belo horizonte': 'CNF',
+  'buenos aires': 'EZE', 'paris': 'CDG', 'londres': 'LHR', 'milao': 'MXP',
+  'toquio': 'NRT', 'seul': 'ICN', 'bangkok': 'BKK', 'istambul': 'IST',
+  'nova iorque': 'JFK', 'xangai': 'PVG', 'pequim': 'PEK',
+};
+
+const CITY_TO_IATA_MAP: Record<string, string> = {};
+// Primeiro, preenche com todos (o último ganha)
+for (const [iata, city] of Object.entries(IATA_MAP)) {
+  const n = norm(city);
+  if (!CITY_TO_IATA_MAP[n]) CITY_TO_IATA_MAP[n] = iata;
+}
+// Depois sobrescreve com as prioridades
+for (const [cityNorm, iata] of Object.entries(PRIORITY_IATA)) {
+  CITY_TO_IATA_MAP[cityNorm] = iata;
+}
+
+export function cityToIata(input: string): string | null {
+  if (!input) return null;
+  const trimmed = input.trim();
+  // Já é um código IATA válido?
+  if (/^[A-Z]{3}$/i.test(trimmed) && IATA_MAP[trimmed.toUpperCase()]) {
+    return trimmed.toUpperCase();
+  }
+  // Busca normalizada
+  const n = norm(trimmed);
+  if (CITY_TO_IATA_MAP[n]) return CITY_TO_IATA_MAP[n];
+  // Tenta alias
+  const aliased = ALIASES_NORM[n];
+  if (aliased) {
+    const aliasN = norm(aliased);
+    if (CITY_TO_IATA_MAP[aliasN]) return CITY_TO_IATA_MAP[aliasN];
+  }
+  // Tenta substring match
+  for (const [cityNorm, iata] of Object.entries(CITY_TO_IATA_MAP)) {
+    if (cityNorm.includes(n) || n.includes(cityNorm)) return iata;
+  }
+  return null;
+}
+
 // ===== Validação de origem brasileira =====
 // Cidades brasileiras extraídas do IATA_MAP (seção Brasil)
 const BRAZILIAN_CITIES_SET = new Set<string>();
@@ -914,6 +956,36 @@ function sortDates(list: any[]) {
   });
 }
 
+/**
+ * For Passageiro de Primeira: all dates are just "available dates" without ida/volta distinction.
+ * Normalize: take all unique dates, sort, pick up to 10, and for each ida date generate volta = ida + gapDays.
+ */
+export function normalizeDatePairs(datasIda: string[], datasVolta: string[], gapDays: number = 5): { datas_ida: string[]; datas_volta: string[] } {
+  // Merge all dates into one pool
+  const allDates = uniq([...(datasIda || []), ...(datasVolta || [])]);
+  const sorted = sortDates(allDates);
+  const selected = sorted.slice(0, 10);
+
+  const newIda: string[] = [];
+  const newVolta: string[] = [];
+
+  for (const dateStr of selected) {
+    const [d, m, y] = String(dateStr).split('/').map(Number);
+    const fullYear = y < 100 ? 2000 + y : y;
+    const idaDate = new Date(fullYear, m - 1, d);
+    const voltaDate = new Date(idaDate);
+    voltaDate.setDate(voltaDate.getDate() + gapDays);
+
+    newIda.push(dateStr);
+    const dd = String(voltaDate.getDate()).padStart(2, '0');
+    const mm = String(voltaDate.getMonth() + 1).padStart(2, '0');
+    const yy = y < 100 ? String(voltaDate.getFullYear()).slice(-2) : String(voltaDate.getFullYear());
+    newVolta.push(`${dd}/${mm}/${yy}`);
+  }
+
+  return { datas_ida: newIda, datas_volta: newVolta };
+}
+
 function formatDatesBlock(dates: any[]) {
   const sorted = sortDates(uniq(dates));
   if (!sorted.length) return "";
@@ -924,6 +996,31 @@ function formatDatesBlock(dates: any[]) {
   let result = displayDates.map(d => `🗓 ${d}`).join("\\n");
   
   return result;
+}
+
+/** Garante que qualquer URL tenha https:// */
+export function ensureHttps(url: string): string {
+  if (!url || !url.trim()) return '';
+  let u = url.trim();
+  // Remove protocolo se for http://
+  if (u.startsWith('http://')) u = u.replace('http://', 'https://');
+  // Adiciona https:// se não tem protocolo nenhum
+  if (!u.startsWith('https://')) u = 'https://' + u;
+  return u;
+}
+
+/** Resolve o link do programa: usa o link do GPT se válido, senão busca do mapa oficial */
+export function resolveLinkPrograma(linkFromGpt: string | undefined, programaCanonical: string): string {
+  // Se GPT retornou link, mas é encurtado (pd1a.com, etc), preferir o mapa oficial
+  const gptLink = (linkFromGpt || '').trim();
+  const isShortener = gptLink && (gptLink.includes('pd1a.com') || gptLink.includes('bit.ly') || gptLink.includes('goo.gl'));
+
+  if (gptLink && !isShortener) {
+    return ensureHttps(gptLink);
+  }
+
+  // Fallback: URL oficial do programa
+  return PROGRAMA_LINKS[programaCanonical] || ensureHttps(gptLink) || 'https://www.smiles.com.br';
 }
 
 export function buildFormattedMessage(data: any, milheiroPorPrograma: Record<string, number> = {}): string {
@@ -1037,7 +1134,9 @@ export function buildWhatsAppLink(data: any, milheiroPorPrograma: Record<string,
              `Valor estimado: R$ ${fmtMoneyBR2(valorVolta)}\n`;
   }
 
-  text += `\n*Taxas:* R$ ${fmtMoneyBR2(valorTaxas)}`;
+  if (valorTaxas > 0) {
+    text += `\n*Taxas:* R$ ${fmtMoneyBR2(valorTaxas)}`;
+  }
 
   const encodedText = encodeURIComponent(text);
   const waNumber = "5522981459289";
