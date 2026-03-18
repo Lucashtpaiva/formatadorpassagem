@@ -122,6 +122,9 @@ Retorne um JSON com exatamente estes campos:
 - datas_ida (array de datas no formato "dd/mm/aa")
 - datas_volta (array de datas no formato "dd/mm/aa")
 - link_programa (URL do programa de milhas se houver, caso contrário string vazia)
+- regiao_origem (região brasileira da cidade de origem: Sudeste, Nordeste, Sul, Centro-Oeste ou Norte)
+- regiao_destino (se destino no Brasil: região brasileira. Se destino internacional: use o continente - América do Norte, América do Sul, América Central, Europa, Ásia, África, Oceania ou Oriente Médio)
+- classe (classe da cabine: Econômica, Executiva ou Primeira Classe. Se não mencionado, use "Econômica")
 
 Regras:
 - Use nomes de cidades em português, não códigos IATA.
@@ -238,6 +241,9 @@ Por favor, analise esses dados e me devolva um único JSON com os seguintes camp
 - datas_volta (array das datas referentes ao trecho de volta)
 - link_programa (se houver no texto, ex: iberia.com)
 - link_whatsapp (se houver)
+- regiao_origem (região brasileira da cidade de origem: Sudeste, Nordeste, Sul, Centro-Oeste ou Norte)
+- regiao_destino (se destino no Brasil: região brasileira. Se destino internacional: use o continente - América do Norte, América do Sul, América Central, Europa, Ásia, África, Oceania ou Oriente Médio)
+- classe (classe da cabine: Econômica, Executiva ou Primeira Classe. Se não mencionado, use "Econômica")
 
 Atenção: responda SOMENTE o JSON válido, sem blocos markdown (\`\`\`).`
                 }

@@ -225,6 +225,15 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
       fonte: fonte,
       grupo: chatName || '',
       cabine: cabine,
+      cidade_origem: finalData.origem || '',
+      cidade_destino: finalData.destino || '',
+      regiao_origem: finalData.regiao_origem || '',
+      regiao_destino: finalData.regiao_destino || '',
+      iata_origem: finalData.iata_origem || '',
+      iata_destino: finalData.iata_destino || '',
+      datas_ida: finalData.datas_ida || [],
+      datas_volta: finalData.datas_volta || [],
+      classe: finalData.classe || cabine || 'Econômica',
       carousel: [
         {
           text: formattedMessage,
@@ -365,13 +374,23 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
   const destinationImage = findDestinationImage(destino, getDestinationOverrides());
   const waLink = buildWhatsAppLink(finalData, milheiroPorPrograma);
 
-  // Alertas Premium é sempre Econômica
+  // Alertas Premium
+  const classeAlerta = finalData.classe || 'Econômica';
   const destinationPayload = {
     phone: phone,
     message: "Oferta Encontrada!",
     fonte: 'Alerta de Voos',
     grupo: chatName || '',
-    cabine: 'Econômica',
+    cabine: classeAlerta,
+    cidade_origem: finalData.origem || '',
+    cidade_destino: finalData.destino || '',
+    regiao_origem: finalData.regiao_origem || '',
+    regiao_destino: finalData.regiao_destino || '',
+    iata_origem: finalData.iata_origem || '',
+    iata_destino: finalData.iata_destino || '',
+    datas_ida: finalData.datas_ida || [],
+    datas_volta: finalData.datas_volta || [],
+    classe: classeAlerta,
     carousel: [
       {
         text: formattedMessage,
@@ -400,7 +419,7 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
   if (bmAirline && bmEnabled) {
     try {
       await logEvent(phone, 'BM_VERIFICATION', `Iniciando verificação BuscaMilhas Alertas Premium (${bmAirline})`, { programa: programaCanonical, milhasIda, milhasVolta });
-      const verification = await verifyOffer({ ...finalData, programa_mais_vantajoso: programaCanonical, cabine: 'Econômica' });
+      const verification = await verifyOffer({ ...finalData, programa_mais_vantajoso: programaCanonical, cabine: classeAlerta });
       await saveBmResult(phone, finalData, verification);
 
       if (verification.verified) {
