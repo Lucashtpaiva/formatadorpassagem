@@ -1113,6 +1113,8 @@ export function buildWhatsAppLink(data: any, milheiroPorPrograma: Record<string,
     valorVolta = (milhasVolta / 1000) * multiplicador;
   }
 
+  const datasIda = Array.isArray(data.datas_ida) ? data.datas_ida.filter(Boolean) : [];
+
   const isOneWay =
     !uniq(datasVolta).length ||
     milhasVolta <= 0;
@@ -1123,15 +1125,27 @@ export function buildWhatsAppLink(data: any, milheiroPorPrograma: Record<string,
              `*Cabine:* Econômica\n` +
              `*Programa:* ${programa}\n\n` +
              `*🛫 IDA*\n` +
-             `Data: A definir\n` +
              `Milhas: ${fmtIntBR(milhasIda)}\n` +
              `Valor estimado: R$ ${fmtMoneyBR2(valorIda)}\n`;
 
+  if (datasIda.length > 0) {
+    text += `\n`;
+    for (const d of datasIda) {
+      text += `🗓 ${d}\n`;
+    }
+  }
+
   if (!isOneWay) {
     text += `\n*🛬 VOLTA*\n` +
-             `Data: A definir\n` +
              `Milhas: ${fmtIntBR(milhasVolta)}\n` +
              `Valor estimado: R$ ${fmtMoneyBR2(valorVolta)}\n`;
+
+    if (datasVolta.length > 0) {
+      text += `\n`;
+      for (const d of datasVolta) {
+        text += `🗓 ${d}\n`;
+      }
+    }
   }
 
   if (valorTaxas > 0) {

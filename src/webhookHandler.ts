@@ -218,6 +218,13 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
     const destinationImage = findDestinationImage(destino, getDestinationOverrides());
     const waLink = buildWhatsAppLink(finalData, milheiroPorPrograma);
 
+    // Calcular valores convertidos via milheiro
+    const milheiroValor = milheiroPorPrograma[programaCanonical] || 0;
+    const milhasTotal = milhasIda + milhasVolta;
+    const precoIda = milheiroValor > 0 ? Math.round((milhasIda / 1000) * milheiroValor * 100) / 100 : 0;
+    const precoVolta = milheiroValor > 0 ? Math.round((milhasVolta / 1000) * milheiroValor * 100) / 100 : 0;
+    const dinheiroTotal = Math.round((precoIda + precoVolta) * 100) / 100;
+
     // Construct exactly as requested
     const destinationPayload = {
       phone: phone,
@@ -234,6 +241,12 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
       datas_ida: finalData.datas_ida || [],
       datas_volta: finalData.datas_volta || [],
       classe: finalData.classe || cabine || 'Econômica',
+      pais_destino: finalData.pais_destino || '',
+      continente_destino: finalData.continente_destino || '',
+      milhas_total: milhasTotal,
+      preco_ida: precoIda,
+      preco_volta: precoVolta,
+      dinheiro_total: dinheiroTotal,
       carousel: [
         {
           text: formattedMessage,
@@ -376,6 +389,14 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
 
   // Alertas Premium
   const classeAlerta = finalData.classe || 'Econômica';
+
+  // Calcular valores convertidos via milheiro
+  const milheiroValor = milheiroPorPrograma[programaCanonical] || 0;
+  const milhasTotal = milhasIda + milhasVolta;
+  const precoIda = milheiroValor > 0 ? Math.round((milhasIda / 1000) * milheiroValor * 100) / 100 : 0;
+  const precoVolta = milheiroValor > 0 ? Math.round((milhasVolta / 1000) * milheiroValor * 100) / 100 : 0;
+  const dinheiroTotal = Math.round((precoIda + precoVolta) * 100) / 100;
+
   const destinationPayload = {
     phone: phone,
     message: "Oferta Encontrada!",
@@ -391,6 +412,12 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
     datas_ida: finalData.datas_ida || [],
     datas_volta: finalData.datas_volta || [],
     classe: classeAlerta,
+    pais_destino: finalData.pais_destino || '',
+    continente_destino: finalData.continente_destino || '',
+    milhas_total: milhasTotal,
+    preco_ida: precoIda,
+    preco_volta: precoVolta,
+    dinheiro_total: dinheiroTotal,
     carousel: [
       {
         text: formattedMessage,

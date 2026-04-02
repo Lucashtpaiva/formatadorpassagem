@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
+import { logEvent } from './logger';
 dotenv.config();
 
 const openai = new OpenAI({
@@ -90,8 +91,9 @@ Responda com JSON sem blocos de código markdown (não use \`\`\`)`
     }
 
     return parsed;
-  } catch (error) {
-    console.error('Error processing image with GPT:', error);
+  } catch (error: any) {
+    const errMsg = error?.message || String(error);
+    await logEvent(null, 'ERROR', `OpenAI processImageWithGPT failed: ${errMsg.substring(0, 150)}`, { error: errMsg });
     return null;
   }
 }
@@ -125,6 +127,8 @@ Retorne um JSON com exatamente estes campos:
 - regiao_origem (região brasileira da cidade de origem: Sudeste, Nordeste, Sul, Centro-Oeste ou Norte)
 - regiao_destino (se destino no Brasil: região brasileira. Se destino internacional: use o continente - América do Norte, América do Sul, América Central, Europa, Ásia, África, Oceania ou Oriente Médio)
 - classe (classe da cabine: Econômica, Executiva ou Primeira Classe. Se não mencionado, use "Econômica")
+- pais_destino (nome do país de destino em português. Ex: "Estados Unidos", "Portugal", "Brasil")
+- continente_destino (continente do destino: América do Norte, América do Sul, América Central, Europa, Ásia, África, Oceania ou Oriente Médio. Se destino no Brasil, use "América do Sul")
 
 Regras:
 - Use nomes de cidades em português, não códigos IATA.
@@ -154,8 +158,9 @@ Regras:
         if (!Array.isArray(parsed.datas_volta)) parsed.datas_volta = [];
 
         return parsed;
-    } catch (error) {
-        console.error('Error parsing caption with GPT:', error);
+    } catch (error: any) {
+        const errMsg = error?.message || String(error);
+        await logEvent(null, 'ERROR', `OpenAI parseCaptionOffer failed: ${errMsg.substring(0, 150)}`, { error: errMsg });
         return null;
     }
 }
@@ -244,6 +249,8 @@ Por favor, analise esses dados e me devolva um único JSON com os seguintes camp
 - regiao_origem (região brasileira da cidade de origem: Sudeste, Nordeste, Sul, Centro-Oeste ou Norte)
 - regiao_destino (se destino no Brasil: região brasileira. Se destino internacional: use o continente - América do Norte, América do Sul, América Central, Europa, Ásia, África, Oceania ou Oriente Médio)
 - classe (classe da cabine: Econômica, Executiva ou Primeira Classe. Se não mencionado, use "Econômica")
+- pais_destino (nome do país de destino em português. Ex: "Estados Unidos", "Portugal", "Brasil")
+- continente_destino (continente do destino: América do Norte, América do Sul, América Central, Europa, Ásia, África, Oceania ou Oriente Médio. Se destino no Brasil, use "América do Sul")
 
 Atenção: responda SOMENTE o JSON válido, sem blocos markdown (\`\`\`).`
                 }
