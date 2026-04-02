@@ -1089,68 +1089,25 @@ export function buildFormattedMessage(data: any, milheiroPorPrograma: Record<str
 }
 
 export function buildWhatsAppLink(data: any, milheiroPorPrograma: Record<string, number> = {}): string {
-  const origem = safeStr(data.origem, "ORIGEM");
-  const destino = safeStr(data.destino, "DESTINO");
-  const cia = safeStr(data.cia_aerea, "CIA");
-  const programaRaw = safeStr(data.programa_mais_vantajoso, "PROGRAMA");
-  const programa = normalizeProgramaName(programaRaw);
+  // Reuse the exact same formatted message from the carousel text field
+  const formattedMessage = buildFormattedMessage(data, milheiroPorPrograma);
 
-  const multiplicador = milheiroPorPrograma[programa] || 0;
+  // Convert \\n (literal escaped newlines for WhatsApp API) to real newlines
+  const messageBody = formattedMessage.replace(/\\n/g, '\n');
 
-  const datasVolta = Array.isArray(data.datas_volta) ? data.datas_volta : [];
+  // Build verification timestamp in Brazilian Portuguese
+  const now = new Date();
+  const dias = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+  const meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const diaSemana = dias[now.getDay()];
+  const dia = now.getDate();
+  const mes = meses[now.getMonth()];
+  const ano = now.getFullYear();
+  const hora = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' });
+  const timestamp = `Oferta verificada ${diaSemana}, ${dia} de ${mes} de ${ano} às ${hora}.`;
 
-  const milhasIda = Number(data.milhas_ida || 0);
-  const milhasVolta = Number(data.milhas_volta || 0);
-
-  let valorIda = Number(data.valor_ida || 0);
-  let valorVolta = Number(data.valor_volta || 0);
-  const valorTaxas = Number(data.valor_taxas || 0);
-
-  if (valorIda === 0 && milhasIda > 0 && multiplicador > 0) {
-    valorIda = (milhasIda / 1000) * multiplicador;
-  }
-  if (valorVolta === 0 && milhasVolta > 0 && multiplicador > 0) {
-    valorVolta = (milhasVolta / 1000) * multiplicador;
-  }
-
-  const datasIda = Array.isArray(data.datas_ida) ? data.datas_ida.filter(Boolean) : [];
-
-  const isOneWay =
-    !uniq(datasVolta).length ||
-    milhasVolta <= 0;
-
-  let text = `✈️ Quero emitir uma passagem encontrada pelo *Passagem Secreta*:\n\n` +
-             `*Rota:* ${origem} → ${destino}\n` +
-             `*Cia Aérea:* ${cia}\n` +
-             `*Cabine:* Econômica\n` +
-             `*Programa:* ${programa}\n\n` +
-             `*🛫 IDA*\n` +
-             `Milhas: ${fmtIntBR(milhasIda)}\n` +
-             `Valor estimado: R$ ${fmtMoneyBR2(valorIda)}\n`;
-
-  if (datasIda.length > 0) {
-    text += `\n`;
-    for (const d of datasIda) {
-      text += `🗓 ${d}\n`;
-    }
-  }
-
-  if (!isOneWay) {
-    text += `\n*🛬 VOLTA*\n` +
-             `Milhas: ${fmtIntBR(milhasVolta)}\n` +
-             `Valor estimado: R$ ${fmtMoneyBR2(valorVolta)}\n`;
-
-    if (datasVolta.length > 0) {
-      text += `\n`;
-      for (const d of datasVolta) {
-        text += `🗓 ${d}\n`;
-      }
-    }
-  }
-
-  if (valorTaxas > 0) {
-    text += `\n*Taxas:* R$ ${fmtMoneyBR2(valorTaxas)}`;
-  }
+  const text = `✈️ Quero emitir uma passagem encontrada pelo\nPassagem Secreta:\n\n` +
+    messageBody + `\n\n` + timestamp;
 
   const encodedText = encodeURIComponent(text);
   const waNumber = "5522981459289";
