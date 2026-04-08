@@ -65,7 +65,8 @@ export async function listDestinations(req: Request, res: Response) {
   let entries = Object.entries(merged).map(([cidade, url]) => ({
     cidade,
     url,
-    overridden: !!destinationOverrides[cidade]
+    overridden: !!destinationOverrides[cidade],
+    custom: !Object.prototype.hasOwnProperty.call(DESTINATIONS_LOOKUP, cidade)
   }));
 
   // Filter by search
@@ -78,12 +79,13 @@ export async function listDestinations(req: Request, res: Response) {
 
   const total = entries.length;
   const totalPages = Math.ceil(total / limit);
-  const offset = (page - 1) * limit;
+  const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1;
+  const offset = (safePage - 1) * limit;
   const pageEntries = entries.slice(offset, offset + limit);
 
   return res.status(200).json({
     destinations: pageEntries,
-    page,
+    page: safePage,
     limit,
     total,
     totalPages
@@ -92,7 +94,8 @@ export async function listDestinations(req: Request, res: Response) {
 
 // PUT /api/destinations
 export async function updateDestination(req: Request, res: Response) {
-  const { cidade, url } = req.body;
+  const cidade = (req.body?.cidade || '').toString().trim();
+  const url = (req.body?.url || '').toString().trim();
 
   if (!cidade || !url) {
     return res.status(400).json({ error: 'Missing cidade or url' });
@@ -115,7 +118,7 @@ export async function updateDestination(req: Request, res: Response) {
 
 // DELETE /api/destinations - removes override (reverts to default)
 export async function deleteDestinationOverride(req: Request, res: Response) {
-  const { cidade } = req.body;
+  const cidade = (req.body?.cidade || '').toString().trim();
 
   if (!cidade) {
     return res.status(400).json({ error: 'Missing cidade' });

@@ -187,6 +187,21 @@ export async function getDashboardHtml(req: Request, res: Response) {
             </div>
             <div class="p-6">
 
+            <!-- Add New Destination -->
+            <div class="mb-6 rounded-2xl border border-cyan-500/15 bg-cyan-500/[0.04] p-4">
+                <div class="flex flex-col xl:flex-row gap-3">
+                    <input id="new-dest-cidade" type="text" placeholder="Nova cidade para match (ex.: Fort Lauderdale ou Veneza)" onkeydown="handleDestAddKey(event)" class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-colors" />
+                    <input id="new-dest-url" type="text" placeholder="URL da imagem" onkeydown="handleDestAddKey(event)" class="flex-[1.4] bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-colors" />
+                    <button onclick="addDestination()" class="btn-primary text-sm text-white font-semibold px-6 py-2.5 rounded-xl whitespace-nowrap flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        Adicionar destino
+                    </button>
+                </div>
+                <p class="text-[11px] text-cyan-200/70 mt-3">
+                    Adicione cidades novas que ainda nao existem no lookup. Se a cidade ja existir, a URL sera salva como override.
+                </p>
+            </div>
+
             <!-- Search + Pagination Controls -->
             <div class="flex gap-3 mb-6 items-center">
                 <input id="dest-search" type="text" placeholder="Buscar destino..." oninput="searchDestinations()" class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-colors" />
@@ -723,6 +738,61 @@ export async function getDashboardHtml(req: Request, res: Response) {
         let destTotalPages = 1;
         let destSearchTimeout = null;
 
+        function isValidHttpUrl(value) {
+            try {
+                const parsed = new URL(value);
+                return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function handleDestAddKey(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                addDestination();
+            }
+        }
+
+        async function addDestination() {
+            const cidadeInput = document.getElementById('new-dest-cidade');
+            const urlInput = document.getElementById('new-dest-url');
+            const cidade = cidadeInput.value.trim();
+            const url = urlInput.value.trim();
+
+            if (!cidade || !url) {
+                alert('Preencha a cidade e a URL da imagem.');
+                return;
+            }
+
+            if (!isValidHttpUrl(url)) {
+                alert('Informe uma URL valida com http ou https.');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/destinations', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cidade: cidade, url: url })
+                });
+
+                if (res.ok) {
+                    showToast('Destino "' + cidade + '" salvo com sucesso!');
+                    cidadeInput.value = '';
+                    urlInput.value = '';
+                    document.getElementById('dest-search').value = cidade;
+                    destCurrentPage = 1;
+                    await fetchDestinations(1, cidade);
+                } else {
+                    const err = await res.json();
+                    alert('Erro: ' + (err.error || 'Falha ao salvar destino'));
+                }
+            } catch (e) {
+                alert('Erro na conexao.');
+            }
+        }
+
         async function fetchDestinations(page, search) {
             page = page || destCurrentPage;
             search = search !== undefined ? search : (document.getElementById('dest-search').value || '');
@@ -731,6 +801,9 @@ export async function getDashboardHtml(req: Request, res: Response) {
                 if (search) params.set('search', search);
                 const res = await fetch('/api/destinations?' + params.toString());
                 const data = await res.json();
+                if (data.totalPages > 0 && page > data.totalPages) {
+                    return fetchDestinations(data.totalPages, search);
+                }
                 destCurrentPage = data.page;
                 destTotalPages = data.totalPages;
                 document.getElementById('dest-count').innerText = '(' + data.total + ' destinos)';
@@ -754,9 +827,18 @@ export async function getDashboardHtml(req: Request, res: Response) {
                 const card = document.createElement('div');
                 card.className = 'group relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-cyan-500/30 transition-all hover:bg-white/10';
                 card.setAttribute('data-cidade', item.cidade);
-                const overrideBadge = item.overridden ? '<span class="absolute top-2 right-2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 z-10">Editado</span>' : '';
+                card.setAttribute('data-custom', item.custom ? 'true' : 'false');
+                const statusBadge = item.custom
+                    ? '<span class="absolute top-2 right-2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 z-10">Novo</span>'
+                    : (item.overridden
+                        ? '<span class="absolute top-2 right-2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 z-10">Editado</span>'
+                        : '');
+                const deleteLabel = item.custom ? 'Excluir' : 'Reverter';
+                const deleteButton = item.overridden
+                    ? '<button onclick="deleteDest(event, this)" class="dest-delete-btn text-[10px] text-red-400 hover:text-red-300 font-medium px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-colors whitespace-nowrap">' + deleteLabel + '</button>'
+                    : '';
                 card.innerHTML =
-                    overrideBadge +
+                    statusBadge +
                     '<div class="relative w-full h-32 bg-black/40 overflow-hidden">' +
                         '<img src="' + item.url + '" alt="' + item.cidade + '" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" loading="lazy" onerror="this.src=\\'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=600&q=80\\'" />' +
                     '</div>' +
@@ -764,9 +846,10 @@ export async function getDashboardHtml(req: Request, res: Response) {
                         '<h4 class="text-sm font-semibold text-white truncate mb-2">' + item.cidade + '</h4>' +
                         '<div class="flex gap-1">' +
                             '<input type="text" value="' + item.url + '" class="dest-url-input hidden flex-1 bg-white/10 border border-cyan-500/30 rounded-lg px-2 py-1 text-[10px] text-gray-300 focus:outline-none" />' +
-                            '<button onclick="startEditDest(this)" class="dest-edit-btn w-full text-[10px] text-cyan-400 hover:text-cyan-300 font-medium py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/20 transition-colors">Editar URL</button>' +
+                            '<button onclick="startEditDest(this)" class="dest-edit-btn flex-1 text-[10px] text-cyan-400 hover:text-cyan-300 font-medium py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/20 transition-colors">Editar URL</button>' +
                             '<button onclick="saveDest(this)" class="dest-save-btn hidden text-[10px] text-green-400 hover:text-green-300 font-medium px-2 py-1 rounded-lg bg-green-500/10 border border-green-500/20 hover:bg-green-500/20 transition-colors whitespace-nowrap">Salvar</button>' +
                             '<button onclick="cancelEditDest(this)" class="dest-cancel-btn hidden text-[10px] text-gray-400 hover:text-gray-300 font-medium px-2 py-1 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors whitespace-nowrap">X</button>' +
+                            deleteButton +
                         '</div>' +
                     '</div>';
                 grid.appendChild(card);
@@ -779,6 +862,8 @@ export async function getDashboardHtml(req: Request, res: Response) {
             card.querySelector('.dest-edit-btn').classList.add('hidden');
             card.querySelector('.dest-save-btn').classList.remove('hidden');
             card.querySelector('.dest-cancel-btn').classList.remove('hidden');
+            const deleteBtn = card.querySelector('.dest-delete-btn');
+            if (deleteBtn) deleteBtn.classList.add('hidden');
             card.querySelector('.dest-url-input').focus();
             card.querySelector('.dest-url-input').select();
         }
@@ -789,6 +874,8 @@ export async function getDashboardHtml(req: Request, res: Response) {
             card.querySelector('.dest-edit-btn').classList.remove('hidden');
             card.querySelector('.dest-save-btn').classList.add('hidden');
             card.querySelector('.dest-cancel-btn').classList.add('hidden');
+            const deleteBtn = card.querySelector('.dest-delete-btn');
+            if (deleteBtn) deleteBtn.classList.remove('hidden');
         }
 
         async function saveDest(btn) {
@@ -796,6 +883,7 @@ export async function getDashboardHtml(req: Request, res: Response) {
             const cidade = card.getAttribute('data-cidade');
             const newUrl = card.querySelector('.dest-url-input').value.trim();
             if (!newUrl) { alert('URL vazia'); return; }
+            if (!isValidHttpUrl(newUrl)) { alert('Informe uma URL valida com http ou https.'); return; }
             try {
                 const res = await fetch('/api/destinations', {
                     method: 'PUT',
@@ -804,18 +892,41 @@ export async function getDashboardHtml(req: Request, res: Response) {
                 });
                 if (res.ok) {
                     showToast('Imagem de "' + cidade + '" atualizada!');
-                    // Update preview immediately
-                    card.querySelector('img').src = newUrl;
-                    cancelEditDest(btn);
-                    // Add override badge if not present
-                    if (!card.querySelector('.bg-cyan-500\\/30')) {
-                        card.insertAdjacentHTML('afterbegin', '<span class="absolute top-2 right-2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 z-10">Editado</span>');
-                    }
+                    await fetchDestinations(destCurrentPage);
                 } else {
                     const err = await res.json();
                     alert('Erro: ' + (err.error || 'Falha ao salvar'));
                 }
             } catch(e) {
+                alert('Erro na conexao.');
+            }
+        }
+
+        async function deleteDest(event, btn) {
+            event.stopPropagation();
+            const card = btn.closest('[data-cidade]');
+            const cidade = card.getAttribute('data-cidade');
+            const isCustom = card.getAttribute('data-custom') === 'true';
+            const confirmText = isCustom
+                ? 'Tem certeza que deseja excluir o destino "' + cidade + '"?'
+                : 'Tem certeza que deseja remover o override de "' + cidade + '"?';
+
+            if (!confirm(confirmText)) return;
+
+            try {
+                const res = await fetch('/api/destinations', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cidade: cidade })
+                });
+                if (res.ok) {
+                    showToast(isCustom ? 'Destino "' + cidade + '" removido.' : 'Override de "' + cidade + '" removido.');
+                    await fetchDestinations(destCurrentPage);
+                } else {
+                    const err = await res.json();
+                    alert('Erro: ' + (err.error || 'Falha ao remover'));
+                }
+            } catch (e) {
                 alert('Erro na conexao.');
             }
         }
