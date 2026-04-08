@@ -738,6 +738,14 @@ export async function getDashboardHtml(req: Request, res: Response) {
         let destTotalPages = 1;
         let destSearchTimeout = null;
 
+        function cleanDestinationText(value) {
+            return String(value || '')
+                .normalize('NFKC')
+                .replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
         function isValidHttpUrl(value) {
             try {
                 const parsed = new URL(value);
@@ -757,8 +765,8 @@ export async function getDashboardHtml(req: Request, res: Response) {
         async function addDestination() {
             const cidadeInput = document.getElementById('new-dest-cidade');
             const urlInput = document.getElementById('new-dest-url');
-            const cidade = cidadeInput.value.trim();
-            const url = urlInput.value.trim();
+            const cidade = cleanDestinationText(cidadeInput.value);
+            const url = cleanDestinationText(urlInput.value);
 
             if (!cidade || !url) {
                 alert('Preencha a cidade e a URL da imagem.');
@@ -796,6 +804,7 @@ export async function getDashboardHtml(req: Request, res: Response) {
         async function fetchDestinations(page, search) {
             page = page || destCurrentPage;
             search = search !== undefined ? search : (document.getElementById('dest-search').value || '');
+            search = cleanDestinationText(search);
             try {
                 const params = new URLSearchParams({ page: String(page), limit: '30' });
                 if (search) params.set('search', search);
@@ -881,7 +890,7 @@ export async function getDashboardHtml(req: Request, res: Response) {
         async function saveDest(btn) {
             const card = btn.closest('[data-cidade]');
             const cidade = card.getAttribute('data-cidade');
-            const newUrl = card.querySelector('.dest-url-input').value.trim();
+            const newUrl = cleanDestinationText(card.querySelector('.dest-url-input').value);
             if (!newUrl) { alert('URL vazia'); return; }
             if (!isValidHttpUrl(newUrl)) { alert('Informe uma URL valida com http ou https.'); return; }
             try {

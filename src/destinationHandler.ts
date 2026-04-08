@@ -5,6 +5,40 @@ import { DESTINATIONS_LOOKUP } from './formatting';
 // Runtime cache of destination overrides from DB
 let destinationOverrides: Record<string, string> = {};
 
+function sanitizeDestinationText(value: unknown): string {
+  return String(value || '')
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeDestinationSearch(value: unknown): string {
+  return sanitizeDestinationText(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+async function findOverrideVariants(cidade: string): Promise<string[]> {
+  const normalizedTarget = normalizeDestinationSearch(cidade);
+  const { data, error } = await supabase
+    .from('destination_overrides')
+    .select('cidade');
+
+  if (error || !data) return [cidade];
+
+  const variants = data
+    .map((row: any) => row.cidade)
+    .filter((rawCity: string) => normalizeDestinationSearch(rawCity) === normalizedTarget);
+
+  if (!variants.includes(cidade)) {
+    variants.push(cidade);
+  }
+
+  return Array.from(new Set(variants));
+}
+
 export async function ensureDestinationOverridesTable() {
   // Try selecting from the table to see if it exists
   const { error } = await supabase
@@ -42,7 +76,11 @@ async function refreshOverridesCache() {
   if (!error && data) {
     destinationOverrides = {};
     data.forEach((row: any) => {
-      destinationOverrides[row.cidade] = row.url;
+      const cidade = sanitizeDestinationText(row.cidade);
+      const url = sanitizeDestinationText(row.url);
+      if (cidade && url) {
+        destinationOverrides[cidade] = url;
+      }
     });
     console.log(`Loaded ${data.length} destination overrides from DB.`);
   }
@@ -54,7 +92,7 @@ export function getDestinationOverrides(): Record<string, string> {
 
 // GET /api/destinations?search=&page=&limit=
 export async function listDestinations(req: Request, res: Response) {
-  const search = ((req.query.search as string) || '').toLowerCase().trim();
+  const search = normalizeDestinationSearch(req.query.search as string);
   const page = Math.max(1, parseInt(req.query.page as string) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 30));
 
@@ -71,7 +109,7 @@ export async function listDestinations(req: Request, res: Response) {
 
   // Filter by search
   if (search) {
-    entries = entries.filter(e => e.cidade.toLowerCase().includes(search));
+    entries = entries.filter(e => normalizeDestinationSearch(e.cidade).includes(search));
   }
 
   // Sort alphabetically
@@ -94,11 +132,26 @@ export async function listDestinations(req: Request, res: Response) {
 
 // PUT /api/destinations
 export async function updateDestination(req: Request, res: Response) {
-  const cidade = (req.body?.cidade || '').toString().trim();
-  const url = (req.body?.url || '').toString().trim();
+  const cidade = sanitizeDestinationText(req.body?.cidade);
+  const url = sanitizeDestinationText(req.body?.url);
 
   if (!cidade || !url) {
     return res.status(400).json({ error: 'Missing cidade or url' });
+  }
+
+  const variants = await findOverrideVariants(cidade);
+  const staleVariants = variants.filter(existingCity => existingCity !== cidade);
+
+  if (staleVariants.length > 0) {
+    const { error: cleanupError } = await supabase
+      .from('destination_overrides')
+      .delete()
+      .in('cidade', staleVariants);
+
+    if (cleanupError) {
+      console.error('Error cleaning destination override variants:', cleanupError);
+      return res.status(500).json({ error: 'Database cleanup error' });
+    }
   }
 
   const { error } = await supabase
@@ -118,16 +171,18 @@ export async function updateDestination(req: Request, res: Response) {
 
 // DELETE /api/destinations - removes override (reverts to default)
 export async function deleteDestinationOverride(req: Request, res: Response) {
-  const cidade = (req.body?.cidade || '').toString().trim();
+  const cidade = sanitizeDestinationText(req.body?.cidade);
 
   if (!cidade) {
     return res.status(400).json({ error: 'Missing cidade' });
   }
 
+  const variants = await findOverrideVariants(cidade);
+
   const { error } = await supabase
     .from('destination_overrides')
     .delete()
-    .eq('cidade', cidade);
+    .in('cidade', variants);
 
   if (error) {
     console.error('Error deleting destination override:', error);
