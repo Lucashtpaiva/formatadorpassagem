@@ -96,6 +96,8 @@ export async function listDestinations(req: Request, res: Response) {
   const page = Math.max(1, parseInt(req.query.page as string) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 30));
 
+  await refreshOverridesCache();
+
   // Merge hardcoded + overrides (overrides win)
   const merged: Record<string, string> = { ...DESTINATIONS_LOOKUP, ...destinationOverrides };
 
