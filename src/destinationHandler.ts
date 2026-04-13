@@ -92,6 +92,10 @@ export function getDestinationOverrides(): Record<string, string> {
 
 // GET /api/destinations?search=&page=&limit=
 export async function listDestinations(req: Request, res: Response) {
+  res.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+
   const search = normalizeDestinationSearch(req.query.search as string);
   const page = Math.max(1, parseInt(req.query.page as string) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 30));

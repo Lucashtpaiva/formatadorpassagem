@@ -5,6 +5,10 @@ import { checkForCompleteOffer } from './webhookHandler';
 import { PROGRAMA_ALIASES_DISPLAY } from './milheiroHandler';
 
 export async function getDashboardHtml(req: Request, res: Response) {
+  res.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+
   const html = `
 <!DOCTYPE html>
 <html lang="pt-BR" class="dark">
@@ -342,6 +346,33 @@ export async function getDashboardHtml(req: Request, res: Response) {
             setTimeout(() => { toast.classList.add('translate-y-20', 'opacity-0'); }, 4000);
         }
 
+        function buildNoStoreUrl(path, params) {
+            const url = new URL(path, window.location.origin);
+            if (params) {
+                Object.entries(params).forEach(function([key, value]) {
+                    if (value !== undefined && value !== null && value !== '') {
+                        url.searchParams.set(key, String(value));
+                    }
+                });
+            }
+            url.searchParams.set('_ts', String(Date.now()));
+            return url.pathname + url.search;
+        }
+
+        async function readErrorMessage(res, fallbackMessage) {
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                const data = await res.json().catch(() => null);
+                if (data && typeof data.error === 'string' && data.error) {
+                    return data.error;
+                }
+                return fallbackMessage;
+            }
+
+            const text = await res.text().catch(() => '');
+            return text || fallbackMessage;
+        }
+
         // Format milheiro price: show integer if whole, otherwise 1 decimal
         function fmtPreco(val) {
             const n = Number(val);
@@ -370,7 +401,10 @@ export async function getDashboardHtml(req: Request, res: Response) {
 
         async function fetchData() {
             try {
-                const res = await fetch('/api/dashboard');
+                const res = await fetch(buildNoStoreUrl('/api/dashboard'), { cache: 'no-store' });
+                if (!res.ok) {
+                    throw new Error(await readErrorMessage(res, 'Falha ao carregar dashboard'));
+                }
                 const data = await res.json();
                 const queueList = data.queue || [];
                 const logs = data.logs || [];
@@ -594,7 +628,10 @@ export async function getDashboardHtml(req: Request, res: Response) {
         // ========== Milheiro Management ==========
         async function fetchMilheiros() {
             try {
-                const res = await fetch('/api/milheiros');
+                const res = await fetch(buildNoStoreUrl('/api/milheiros'), { cache: 'no-store' });
+                if (!res.ok) {
+                    throw new Error(await readErrorMessage(res, 'Falha ao carregar milheiros'));
+                }
                 const data = await res.json();
                 renderMilheiros(data);
             } catch (err) {
@@ -793,11 +830,10 @@ export async function getDashboardHtml(req: Request, res: Response) {
                     destCurrentPage = 1;
                     await fetchDestinations(1, cidade);
                 } else {
-                    const err = await res.json();
-                    alert('Erro: ' + (err.error || 'Falha ao salvar destino'));
+                    alert('Erro: ' + await readErrorMessage(res, 'Falha ao salvar destino'));
                 }
             } catch (e) {
-                alert('Erro na conexao.');
+                alert('Erro na conexao: ' + (e && e.message ? e.message : 'falha inesperada.'));
             }
         }
 
@@ -806,9 +842,15 @@ export async function getDashboardHtml(req: Request, res: Response) {
             search = search !== undefined ? search : (document.getElementById('dest-search').value || '');
             search = cleanDestinationText(search);
             try {
-                const params = new URLSearchParams({ page: String(page), limit: '30' });
-                if (search) params.set('search', search);
-                const res = await fetch('/api/destinations?' + params.toString());
+                const url = buildNoStoreUrl('/api/destinations', {
+                    page: String(page),
+                    limit: '30',
+                    search: search || undefined
+                });
+                const res = await fetch(url, { cache: 'no-store' });
+                if (!res.ok) {
+                    throw new Error(await readErrorMessage(res, 'Falha ao carregar destinos'));
+                }
                 const data = await res.json();
                 if (data.totalPages > 0 && page > data.totalPages) {
                     return fetchDestinations(data.totalPages, search);
@@ -903,11 +945,10 @@ export async function getDashboardHtml(req: Request, res: Response) {
                     showToast('Imagem de "' + cidade + '" atualizada!');
                     await fetchDestinations(destCurrentPage);
                 } else {
-                    const err = await res.json();
-                    alert('Erro: ' + (err.error || 'Falha ao salvar'));
+                    alert('Erro: ' + await readErrorMessage(res, 'Falha ao salvar'));
                 }
             } catch(e) {
-                alert('Erro na conexao.');
+                alert('Erro na conexao: ' + (e && e.message ? e.message : 'falha inesperada.'));
             }
         }
 
@@ -932,11 +973,10 @@ export async function getDashboardHtml(req: Request, res: Response) {
                     showToast(isCustom ? 'Destino "' + cidade + '" removido.' : 'Override de "' + cidade + '" removido.');
                     await fetchDestinations(destCurrentPage);
                 } else {
-                    const err = await res.json();
-                    alert('Erro: ' + (err.error || 'Falha ao remover'));
+                    alert('Erro: ' + await readErrorMessage(res, 'Falha ao remover'));
                 }
             } catch (e) {
-                alert('Erro na conexao.');
+                alert('Erro na conexao: ' + (e && e.message ? e.message : 'falha inesperada.'));
             }
         }
 
@@ -1148,6 +1188,10 @@ export async function getDashboardHtml(req: Request, res: Response) {
 
 export async function getDashboardData(req: Request, res: Response) {
   try {
+    res.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
     // 1. Fetch recent queue (last 24 hours) from whatsapp_offers_temp - individual messages
     const yesterday = new Date();
     yesterday.setHours(yesterday.getHours() - 24);
