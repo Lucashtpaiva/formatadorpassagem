@@ -8,6 +8,48 @@ import { loadMilheiroConfig } from './milheiroHandler';
 import { getDestinationOverrides } from './destinationHandler';
 import { verifyOffer, saveBmResult, getBmAirline, isBmEnabled } from './buscamilhasClient';
 
+async function postDestinationWebhook(url: string, payload: unknown) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Webhook responded with status ${response.status}`);
+  }
+}
+
+async function sendDestinationPayload(
+  phone: string,
+  payload: unknown,
+  successMessage: string,
+  missingPrimaryMessage: string,
+  primaryErrorMessage: string
+) {
+  const primaryWebhookUrl = process.env.DESTINATION_WEBHOOK_URL;
+  const secondaryWebhookUrl = process.env.SECONDARY_DESTINATION_WEBHOOK_URL;
+
+  if (!primaryWebhookUrl) {
+    await logEvent(phone, 'ERROR', missingPrimaryMessage, { payload });
+    return false;
+  }
+
+  const secondaryRequest = secondaryWebhookUrl
+    ? postDestinationWebhook(secondaryWebhookUrl, payload).catch(() => undefined)
+    : Promise.resolve();
+
+  try {
+    await postDestinationWebhook(primaryWebhookUrl, payload);
+    await secondaryRequest;
+    await logEvent(phone, 'OFFER_PROCESSED', successMessage, { payload });
+    return true;
+  } catch (e: any) {
+    await logEvent(phone, 'ERROR', primaryErrorMessage, { error: e.message || String(e) });
+    return false;
+  }
+}
+
 export async function handleWhatsAppWebhook(req: Request, res: Response) {
   try {
     // Determine structure (sometimes Z-API wraps messages in an array)
@@ -23,7 +65,11 @@ export async function handleWhatsAppWebhook(req: Request, res: Response) {
     const { phone, chatName, text, image } = payload;
 
     // ===== "Alertas Premium" single-caption flow =====
-    if (chatName && chatName.includes('Alertas Premium') && image && image.caption) {
+    const isAlertaPremiumGroup = chatName && (
+      chatName.includes('Alertas Premium') ||
+      chatName.includes('TESTE PREMIUM')
+    );
+    if (isAlertaPremiumGroup && image && image.caption) {
       await logEvent(phone, 'RECEIVED_CAPTION', `Received Alertas Premium caption for ${chatName}`, { caption: image.caption });
 
       // Save to temp table so it appears in the dashboard queue
@@ -306,28 +352,19 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
       (destinationPayload as any).verificado = null;
     }
 
-    // Send to final Webhook
-    try {
-      const webhookUrl = process.env.DESTINATION_WEBHOOK_URL;
-      if (webhookUrl) {
-         await fetch(webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(destinationPayload)
-         });
-         await logEvent(phone, 'OFFER_PROCESSED', `Final offer JSON generated and sent to Destination Webhook`, { payload: destinationPayload });
-      } else {
-         await logEvent(phone, 'ERROR', `DESTINATION_WEBHOOK_URL is missing!`, { payload: destinationPayload });
-      }
+    const sent = await sendDestinationPayload(
+      phone,
+      destinationPayload,
+      'Final offer JSON generated and sent to Destination Webhook',
+      'DESTINATION_WEBHOOK_URL is missing!',
+      'Failed to send POST to final webhook'
+    );
 
-      // Mark as processed
+    if (sent) {
       await supabase
-         .from('whatsapp_offers_temp')
-         .update({ processed: true })
-         .in('id', messageIds);
-
-    } catch (e: any) {
-      await logEvent(phone, 'ERROR', `Failed to send POST to final webhook`, { error: e.message || String(e) });
+        .from('whatsapp_offers_temp')
+        .update({ processed: true })
+        .in('id', messageIds);
     }
   }
 }
@@ -473,19 +510,11 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
     (destinationPayload as any).verificado = null;
   }
 
-  try {
-    const webhookUrl = process.env.DESTINATION_WEBHOOK_URL;
-    if (webhookUrl) {
-      await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(destinationPayload)
-      });
-      await logEvent(phone, 'OFFER_PROCESSED', `Alertas Premium offer sent to Destination Webhook`, { payload: destinationPayload });
-    } else {
-      await logEvent(phone, 'ERROR', `DESTINATION_WEBHOOK_URL is missing!`, { payload: destinationPayload });
-    }
-  } catch (e: any) {
-    await logEvent(phone, 'ERROR', `Failed to send Alertas Premium offer to webhook`, { error: e.message || String(e) });
-  }
+  await sendDestinationPayload(
+    phone,
+    destinationPayload,
+    'Alertas Premium offer sent to Destination Webhook',
+    'DESTINATION_WEBHOOK_URL is missing!',
+    'Failed to send Alertas Premium offer to webhook'
+  );
 }
