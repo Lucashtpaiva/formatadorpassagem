@@ -68,7 +68,7 @@ export async function ensureDestinationOverridesTable() {
   await refreshOverridesCache();
 }
 
-async function refreshOverridesCache() {
+export async function refreshOverridesCache() {
   const { data, error } = await supabase
     .from('destination_overrides')
     .select('cidade, url');
@@ -87,6 +87,11 @@ async function refreshOverridesCache() {
 }
 
 export function getDestinationOverrides(): Record<string, string> {
+  return destinationOverrides;
+}
+
+export async function getFreshDestinationOverrides(): Promise<Record<string, string>> {
+  await refreshOverridesCache();
   return destinationOverrides;
 }
 
