@@ -5,7 +5,7 @@ import { findDestinationImage, buildFormattedMessage, buildWhatsAppLink, isBrazi
 import { normalizeProgramaName } from './milheiroHandler';
 import { logEvent } from './logger';
 import { loadMilheiroConfig } from './milheiroHandler';
-import { getDestinationOverrides } from './destinationHandler';
+import { getFreshDestinationOverrides } from './destinationHandler';
 import { verifyOffer, saveBmResult, getBmAirline, isBmEnabled } from './buscamilhasClient';
 
 async function postDestinationWebhook(url: string, payload: unknown) {
@@ -261,7 +261,7 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
     const milheiroPorPrograma = await loadMilheiroConfig();
 
     const formattedMessage = buildFormattedMessage(finalData, milheiroPorPrograma);
-    const destinationImage = findDestinationImage(destino, getDestinationOverrides());
+    const destinationImage = findDestinationImage(destino, await getFreshDestinationOverrides());
     const waLink = buildWhatsAppLink(finalData, milheiroPorPrograma);
 
     // Calcular valores convertidos via milheiro
@@ -421,7 +421,7 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
 
   const milheiroPorPrograma = await loadMilheiroConfig();
   const formattedMessage = buildFormattedMessage(finalData, milheiroPorPrograma);
-  const destinationImage = findDestinationImage(destino, getDestinationOverrides());
+  const destinationImage = findDestinationImage(destino, await getFreshDestinationOverrides());
   const waLink = buildWhatsAppLink(finalData, milheiroPorPrograma);
 
   // Alertas Premium
