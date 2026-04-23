@@ -1,11 +1,76 @@
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 import { logEvent } from './logger';
+import { normalizeProgramaName } from './milheiroHandler';
 dotenv.config();
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+const NOISE_VALUE_PATTERNS = [
+  'alertadevoos',
+  'alerta de voos',
+  'agencia do alerta',
+  'agência do alerta',
+  'flypass',
+];
+
+function cleanCaptionValue(value: string): string {
+  return (value || '')
+    .replace(/\*/g, '')
+    .replace(/\u00A0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeNoiseValue(value: string): string {
+  return cleanCaptionValue(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function isNoiseValue(value: string): boolean {
+  const normalized = normalizeNoiseValue(value);
+  return !!normalized && NOISE_VALUE_PATTERNS.some((pattern) => normalized.includes(pattern));
+}
+
+function extractCaptionField(caption: string, label: string): string {
+  const prefix = `${label.toLowerCase()}:`;
+  for (const rawLine of (caption || '').split(/\r?\n/)) {
+    const line = cleanCaptionValue(rawLine);
+    if (!line) continue;
+    if (line.toLowerCase().startsWith(prefix)) {
+      return cleanCaptionValue(line.slice(prefix.length));
+    }
+  }
+  return '';
+}
+
+function applyCaptionFieldOverrides(caption: string, parsed: any): any {
+  parsed.cia_aerea = cleanCaptionValue(parsed.cia_aerea || '');
+  parsed.programa_mais_vantajoso = cleanCaptionValue(parsed.programa_mais_vantajoso || '');
+
+  const captionAirline = extractCaptionField(caption, 'Companhia');
+  if (captionAirline && !isNoiseValue(captionAirline)) {
+    parsed.cia_aerea = captionAirline;
+  } else if (isNoiseValue(parsed.cia_aerea)) {
+    parsed.cia_aerea = '';
+  }
+
+  const captionProgram = extractCaptionField(caption, 'Programa de Milhas');
+  const normalizedCaptionProgram = normalizeProgramaName(captionProgram);
+  if (captionProgram && normalizedCaptionProgram !== captionProgram) {
+    parsed.programa_mais_vantajoso = normalizedCaptionProgram;
+  } else if (captionProgram && !isNoiseValue(captionProgram) && (!parsed.programa_mais_vantajoso || isNoiseValue(parsed.programa_mais_vantajoso))) {
+    parsed.programa_mais_vantajoso = captionProgram;
+  } else if (isNoiseValue(parsed.programa_mais_vantajoso) && !captionProgram) {
+    parsed.programa_mais_vantajoso = '';
+  }
+
+  return parsed;
+}
 
 export async function processImageWithGPT(imageUrl: string): Promise<any> {
   try {
@@ -141,7 +206,7 @@ Regras:
         });
 
         const output = response.choices[0].message.content || '{}';
-        const parsed = JSON.parse(output);
+        const parsed = applyCaptionFieldOverrides(caption, JSON.parse(output));
 
         // Safeguard: validate required fields and reasonable values
         if (!parsed.origem || !parsed.destino || !parsed.cia_aerea) {
@@ -275,16 +340,6 @@ Atenção: responda SOMENTE o JSON válido, sem blocos markdown (\`\`\`).`
         // Ensure arrays
         if (!Array.isArray(parsed.datas_ida)) parsed.datas_ida = [];
         if (!Array.isArray(parsed.datas_volta)) parsed.datas_volta = [];
-
-        // Propagate IATA codes from image extracted data (trust image extraction over GPT reconsolidation)
-        let iataOrigem = '';
-        let iataDestino = '';
-        for (const imgData of extractedImagesData) {
-          if (imgData?.iata_origem && !iataOrigem) iataOrigem = imgData.iata_origem;
-          if (imgData?.iata_destino && !iataDestino) iataDestino = imgData.iata_destino;
-        }
-        parsed.iata_origem = iataOrigem;
-        parsed.iata_destino = iataDestino;
 
         return parsed;
     } catch (error) {

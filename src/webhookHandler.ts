@@ -1,12 +1,18 @@
 import { Request, Response } from 'express';
 import { supabase } from './supabaseClient';
 import { processImageWithGPT, generateFinalOfferPayload, parseCaptionOffer, extractIataFromImage } from './openaiClient';
-import { findDestinationImage, buildFormattedMessage, buildWhatsAppLink, isBrazilianOrigin, ensureHttps, resolveLinkPrograma, normalizeDatePairs } from './formatting';
+import { findDestinationImage, buildFormattedMessage, buildWhatsAppLink, isBrazilianOrigin, ensureHttps, resolveLinkPrograma, normalizeDatePairs, iataMatchesCity } from './formatting';
 import { normalizeProgramaName } from './milheiroHandler';
 import { logEvent } from './logger';
 import { loadMilheiroConfig } from './milheiroHandler';
 import { getFreshDestinationOverrides } from './destinationHandler';
 import { verifyOffer, saveBmResult, getBmAirline, isBmEnabled } from './buscamilhasClient';
+
+type IataCandidate = {
+  iata_origem?: string;
+  iata_destino?: string;
+  imageUrl?: string | null;
+};
 
 async function postDestinationWebhook(url: string, payload: unknown) {
   const response = await fetch(url, {
@@ -48,6 +54,51 @@ async function sendDestinationPayload(
     await logEvent(phone, 'ERROR', primaryErrorMessage, { error: e.message || String(e) });
     return false;
   }
+}
+
+async function applyValidatedImageIata(
+  phone: string,
+  source: string,
+  finalData: any,
+  candidates: IataCandidate[]
+) {
+  const checked = candidates
+    .filter((candidate) => candidate?.iata_origem || candidate?.iata_destino)
+    .map((candidate) => {
+      const origem = (candidate.iata_origem || '').toUpperCase();
+      const destino = (candidate.iata_destino || '').toUpperCase();
+      return {
+        imageUrl: candidate.imageUrl || null,
+        iata_origem: origem,
+        iata_destino: destino,
+        origem_confere: origem ? iataMatchesCity(origem, finalData.origem) : false,
+        destino_confere: destino ? iataMatchesCity(destino, finalData.destino) : false,
+      };
+    });
+
+  if (!checked.length) return;
+
+  const acceptedOrigem = checked.find((item) => item.origem_confere)?.iata_origem || '';
+  const acceptedDestino = checked.find((item) => item.destino_confere)?.iata_destino || '';
+
+  if (acceptedOrigem) finalData.iata_origem = acceptedOrigem;
+  if (acceptedDestino) finalData.iata_destino = acceptedDestino;
+
+  const appliedAny = Boolean(acceptedOrigem || acceptedDestino);
+  await logEvent(
+    phone,
+    'IATA_EXTRACTED',
+    appliedAny
+      ? `${source}: IATA da imagem validado e aplicado`
+      : `${source}: IATA da imagem ignorado por divergência com origem/destino`,
+    {
+      origem: finalData.origem,
+      destino: finalData.destino,
+      iata_origem_aplicado: acceptedOrigem,
+      iata_destino_aplicado: acceptedDestino,
+      candidates: checked,
+    }
+  );
 }
 
 export async function handleWhatsAppWebhook(req: Request, res: Response) {
@@ -208,10 +259,16 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
       return;
     }
 
-    // Log IATA codes if extracted from images
-    if (finalData.iata_origem || finalData.iata_destino) {
-      await logEvent(phone, 'IATA_EXTRACTED', `IATA extraídos das imagens: ${finalData.iata_origem || '?'} → ${finalData.iata_destino || '?'}`, { iata_origem: finalData.iata_origem, iata_destino: finalData.iata_destino });
-    }
+    await applyValidatedImageIata(
+      phone,
+      'Passageiro de Primeira',
+      finalData,
+      recentImages.map((img: any) => ({
+        iata_origem: img.extracted_data?.iata_origem,
+        iata_destino: img.extracted_data?.iata_destino,
+        imageUrl: img.content,
+      }))
+    );
 
     // Normalize dates for 3-message flow: all dates are "available dates", create ida/volta pairs with 5-day gap
     const normalized = normalizeDatePairs(finalData.datas_ida || [], finalData.datas_volta || [], 5);
@@ -385,9 +442,11 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
     try {
       const iataData = await extractIataFromImage(imageUrl);
       if (iataData) {
-        if (iataData.iata_origem) finalData.iata_origem = iataData.iata_origem;
-        if (iataData.iata_destino) finalData.iata_destino = iataData.iata_destino;
-        await logEvent(phone, 'IATA_EXTRACTED', `IATA extraídos da imagem Alertas Premium: ${iataData.iata_origem} → ${iataData.iata_destino}`, { iata_origem: iataData.iata_origem, iata_destino: iataData.iata_destino, imageUrl });
+        await applyValidatedImageIata(phone, 'Alertas Premium', finalData, [{
+          iata_origem: iataData.iata_origem,
+          iata_destino: iataData.iata_destino,
+          imageUrl,
+        }]);
       }
     } catch (iataErr: any) {
       console.error('Failed to extract IATA from Alertas Premium image:', iataErr);
