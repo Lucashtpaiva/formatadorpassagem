@@ -8,6 +8,8 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const CANONICAL_PROGRAMS = 'LATAM Pass, Smiles, Azul Fidelidade, Azul Interline, Iberia Plus, TAP Miles&Go, AAdvantage, ConnectMiles, Privilege Club, Flying Blue, Mileage Plan, Flying Club, SkyMiles, MileagePlus, Aeroplan, Suma Miles, LifeMiles';
+
 const NOISE_VALUE_PATTERNS = [
   'alertadevoos',
   'alerta de voos',
@@ -70,6 +72,159 @@ function applyCaptionFieldOverrides(caption: string, parsed: any): any {
   }
 
   return parsed;
+}
+
+function parseJsonObject(output: string): any {
+  const trimmed = (output || '').trim();
+  if (!trimmed) return {};
+  const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
+  return JSON.parse(jsonMatch ? jsonMatch[0] : trimmed);
+}
+
+function ensureOfferArrays(parsed: any): any {
+  if (!Array.isArray(parsed.datas_ida)) parsed.datas_ida = [];
+  if (!Array.isArray(parsed.datas_volta)) parsed.datas_volta = [];
+  return parsed;
+}
+
+function getCaptionValidationError(parsed: any, caption: string): string | null {
+  if (!parsed?.origem || !parsed?.destino) return 'origem/destino ausentes';
+  if (!parsed?.cia_aerea) return 'companhia ausente';
+
+  const explicitProgram = extractCaptionField(caption, 'Programa de Milhas');
+  if (explicitProgram && !parsed?.programa_mais_vantajoso) {
+    return 'programa ausente apesar de existir no caption';
+  }
+
+  const milhasIda = Number(parsed?.milhas_ida || 0);
+  if (milhasIda <= 0 || milhasIda > 500000) {
+    return `milhas_ida fora da faixa (${milhasIda})`;
+  }
+
+  return null;
+}
+
+function getFinalPayloadValidationError(parsed: any): string | null {
+  if (!parsed?.origem || !parsed?.destino) return 'origem/destino ausentes';
+
+  const milhasIda = Number(parsed?.milhas_ida || 0);
+  if (milhasIda <= 0 || milhasIda > 500000) {
+    return `milhas_ida fora da faixa (${milhasIda})`;
+  }
+
+  return null;
+}
+
+async function requestCaptionOffer(caption: string, mode: 'primary' | 'fallback'): Promise<any> {
+  const fallbackGuidance = mode === 'fallback'
+    ? `
+Modo de contingência:
+- Priorize as linhas explícitas do texto, especialmente "Companhia:" e "Programa de Milhas:".
+- Se "Programa de Milhas" for "LATAM", retorne "LATAM Pass"; se for "SMILES", retorne "Smiles"; se for "AZUL" ou "AZUL PELO MUNDO", retorne "Azul Fidelidade" ou "Azul Interline" conforme o texto.
+- Nunca use "ALERTADEVOOS", "Flypass" ou "Agência do Alerta" como companhia ou programa.
+- Se o texto tiver origem e destino no cabeçalho, use o cabeçalho como fonte de verdade.
+- Se houver só ida, use milhas_volta = 0 e datas_volta = [].
+- Responda com o melhor JSON possível mesmo que algum campo secundário fique vazio.
+`
+    : '';
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4.1',
+    messages: [
+      {
+        role: 'system',
+        content: `Você é um assistente especializado em extrair dados de ofertas de voos a partir de mensagens de alerta do WhatsApp. Extraia todas as informações relevantes e retorne um JSON estruturado. Ignore links, promoções de agências, e textos promocionais.`
+      },
+      {
+        role: 'user',
+        content: `Extraia os dados desta oferta de voo:
+
+${caption}
+
+Retorne um JSON com exatamente estes campos:
+- origem (cidade de origem, sem código de aeroporto)
+- destino (cidade de destino, sem código de aeroporto)
+- cia_aerea (companhia aérea)
+- programa_mais_vantajoso (nome do programa de milhas. Use EXATAMENTE um destes nomes: ${CANONICAL_PROGRAMS})
+- milhas_ida (número inteiro, sem pontos ou vírgulas)
+- milhas_volta (número inteiro, sem pontos ou vírgulas. Se não houver volta, use 0)
+- valor_taxas (número em reais, se mencionado. Se não houver, use 0)
+- datas_ida (array de datas no formato "dd/mm/aa")
+- datas_volta (array de datas no formato "dd/mm/aa")
+- link_programa (URL do programa de milhas se houver, caso contrário string vazia)
+- regiao_origem (região brasileira da cidade de origem: Sudeste, Nordeste, Sul, Centro-Oeste ou Norte)
+- regiao_destino (se destino no Brasil: região brasileira. Se destino internacional: use o continente - América do Norte, América do Sul, América Central, Europa, Ásia, África, Oceania ou Oriente Médio)
+- classe (classe da cabine: Econômica, Executiva ou Primeira Classe. Se não mencionado, use "Econômica")
+- pais_destino (nome do país de destino em português. Ex: "Estados Unidos", "Portugal", "Brasil")
+- continente_destino (continente do destino: América do Norte, América do Sul, América Central, Europa, Ásia, África, Oceania ou Oriente Médio. Se destino no Brasil, use "América do Sul")
+
+Regras:
+- Use nomes de cidades em português, não códigos IATA.
+- Milhas devem ser números inteiros (ex: "17.500 milhas" = 17500, "19,300 milhas" = 19300).
+- Ignore links de agências externas (alertadevoos, flypass, etc).
+${fallbackGuidance}
+- Responda SOMENTE o JSON válido, sem blocos markdown.`
+      }
+    ],
+    response_format: { type: "json_object" }
+  });
+
+  return parseJsonObject(response.choices[0].message.content || '{}');
+}
+
+async function requestFinalOfferPayload(textMessage: string, extractedImagesData: any[], mode: 'primary' | 'fallback'): Promise<any> {
+  const fallbackGuidance = mode === 'fallback'
+    ? `
+Atenção extra:
+- Se houver divergência entre texto e imagens, priorize origem/destino descritos no texto.
+- Use as imagens principalmente para datas e apoio de rota.
+- Nunca invente companhia, programa ou milhas se o texto já trouxer esses valores.
+- Responda com o melhor JSON possível mesmo que algum campo secundário fique vazio.
+`
+    : '';
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4.1',
+    messages: [
+      {
+        role: 'system',
+        content: `Você é um assistente especializado em formatar ofertas de voos. Você receberá o texto original da oferta e os dados estruturados de ida e volta extraídos de imagens. Seu objetivo é consolidar essas informações para preparar um JSON de saída com os dados mapeados para o webhook final. Extraia todas as milhas, valores e companhia aérea do texto e agrupe com as datas das imagens.`
+      },
+      {
+        role: 'user',
+        content: `Aqui está o texto da oferta recebida:
+${textMessage}
+
+Aqui estão os dados estruturados extraídos das 2 imagens (ida e volta, a ordem pode variar):
+${JSON.stringify(extractedImagesData, null, 2)}
+
+Por favor, analise esses dados e me devolva um único JSON com os seguintes campos extraídos:
+- origem
+- destino
+- cia_aerea
+- programa_mais_vantajoso (use EXATAMENTE um destes nomes: ${CANONICAL_PROGRAMS})
+- milhas_ida (número, extraído do texto)
+- milhas_volta (número, extraído do texto)
+- valor_ida_e_volta (número, se tiver no texto)
+- valor_taxas (número total de taxas, em reais ou convertido do dólar aproximado, do texto)
+- datas_ida (array das datas referentes ao trecho de ida)
+- datas_volta (array das datas referentes ao trecho de volta)
+- link_programa (se houver no texto, ex: iberia.com)
+- link_whatsapp (se houver)
+- regiao_origem (região brasileira da cidade de origem: Sudeste, Nordeste, Sul, Centro-Oeste ou Norte)
+- regiao_destino (se destino no Brasil: região brasileira. Se destino internacional: use o continente - América do Norte, América do Sul, América Central, Europa, Ásia, África, Oceania ou Oriente Médio)
+- classe (classe da cabine: Econômica, Executiva ou Primeira Classe. Se não mencionado, use "Econômica")
+- pais_destino (nome do país de destino em português. Ex: "Estados Unidos", "Portugal", "Brasil")
+- continente_destino (continente do destino: América do Norte, América do Sul, América Central, Europa, Ásia, África, Oceania ou Oriente Médio. Se destino no Brasil, use "América do Sul")
+${fallbackGuidance}
+
+Atenção: responda SOMENTE o JSON válido, sem blocos markdown (\`\`\`).`
+      }
+    ],
+    response_format: { type: "json_object" }
+  });
+
+  return parseJsonObject(response.choices[0].message.content || '{}');
 }
 
 export async function processImageWithGPT(imageUrl: string): Promise<any> {
@@ -165,62 +320,24 @@ Responda com JSON sem blocos de código markdown (não use \`\`\`)`
 
 export async function parseCaptionOffer(caption: string): Promise<any> {
     try {
-        const response = await openai.chat.completions.create({
-            model: 'gpt-4.1',
-            messages: [
-                {
-                    role: 'system',
-                    content: `Você é um assistente especializado em extrair dados de ofertas de voos a partir de mensagens de alerta do WhatsApp. Extraia todas as informações relevantes e retorne um JSON estruturado. Ignore links, promoções de agências, e textos promocionais.`
-                },
-                {
-                    role: 'user',
-                    content: `Extraia os dados desta oferta de voo:
+        let parsed = applyCaptionFieldOverrides(caption, await requestCaptionOffer(caption, 'primary'));
+        parsed = ensureOfferArrays(parsed);
 
-${caption}
+        const primaryError = getCaptionValidationError(parsed, caption);
+        if (!primaryError) {
+          return parsed;
+        }
 
-Retorne um JSON com exatamente estes campos:
-- origem (cidade de origem, sem código de aeroporto)
-- destino (cidade de destino, sem código de aeroporto)
-- cia_aerea (companhia aérea)
-- programa_mais_vantajoso (nome do programa de milhas. Use EXATAMENTE um destes nomes: LATAM Pass, Smiles, Azul Fidelidade, Azul Interline, Iberia Plus, TAP Miles&Go, AAdvantage, ConnectMiles, Privilege Club, Flying Blue, Mileage Plan, Flying Club, SkyMiles, MileagePlus, Aeroplan, Suma Miles, LifeMiles)
-- milhas_ida (número inteiro, sem pontos ou vírgulas)
-- milhas_volta (número inteiro, sem pontos ou vírgulas. Se não houver volta, use 0)
-- valor_taxas (número em reais, se mencionado. Se não houver, use 0)
-- datas_ida (array de datas no formato "dd/mm/aa")
-- datas_volta (array de datas no formato "dd/mm/aa")
-- link_programa (URL do programa de milhas se houver, caso contrário string vazia)
-- regiao_origem (região brasileira da cidade de origem: Sudeste, Nordeste, Sul, Centro-Oeste ou Norte)
-- regiao_destino (se destino no Brasil: região brasileira. Se destino internacional: use o continente - América do Norte, América do Sul, América Central, Europa, Ásia, África, Oceania ou Oriente Médio)
-- classe (classe da cabine: Econômica, Executiva ou Primeira Classe. Se não mencionado, use "Econômica")
-- pais_destino (nome do país de destino em português. Ex: "Estados Unidos", "Portugal", "Brasil")
-- continente_destino (continente do destino: América do Norte, América do Sul, América Central, Europa, Ásia, África, Oceania ou Oriente Médio. Se destino no Brasil, use "América do Sul")
+        await logEvent(null, 'PROCESSING_FINAL_OFFER', `Caption parse fallback acionado`, { reason: primaryError });
 
-Regras:
-- Use nomes de cidades em português, não códigos IATA.
-- Milhas devem ser números inteiros (ex: "17.500 milhas" = 17500, "19,300 milhas" = 19300).
-- Ignore links de agências externas (alertadevoos, flypass, etc).
-- Responda SOMENTE o JSON válido, sem blocos markdown.`
-                }
-            ],
-            response_format: { type: "json_object" }
-        });
+        parsed = applyCaptionFieldOverrides(caption, await requestCaptionOffer(caption, 'fallback'));
+        parsed = ensureOfferArrays(parsed);
 
-        const output = response.choices[0].message.content || '{}';
-        const parsed = applyCaptionFieldOverrides(caption, JSON.parse(output));
-
-        // Safeguard: validate required fields and reasonable values
-        if (!parsed.origem || !parsed.destino || !parsed.cia_aerea) {
-          console.warn('GPT caption parse missing required fields:', parsed);
+        const fallbackError = getCaptionValidationError(parsed, caption);
+        if (fallbackError) {
+          console.warn('GPT caption parse invalid after fallback:', fallbackError, parsed);
           return null;
         }
-        const milhasIda = Number(parsed.milhas_ida || 0);
-        if (milhasIda <= 0 || milhasIda > 500000) {
-          console.warn('GPT caption parse: milhas_ida out of range:', milhasIda);
-          return null;
-        }
-        // Ensure arrays
-        if (!Array.isArray(parsed.datas_ida)) parsed.datas_ida = [];
-        if (!Array.isArray(parsed.datas_volta)) parsed.datas_volta = [];
 
         return parsed;
     } catch (error: any) {
@@ -283,63 +400,20 @@ Responda SOMENTE o JSON, sem blocos de código markdown.`
 
 export async function generateFinalOfferPayload(textMessage: string, extractedImagesData: any[]): Promise<any> {
     try {
-        const response = await openai.chat.completions.create({
-            model: 'gpt-4.1',
-            messages: [
-                {
-                    role: 'system',
-                    content: `Você é um assistente especializado em formatar ofertas de voos. Você receberá o texto original da oferta e os dados estruturados de ida e volta extraídos de imagens. Seu objetivo é consolidar essas informações para preparar um JSON de saída com os dados mapeados para o webhook final. Extraia todas as milhas, valores e companhia aérea do texto e agrupe com as datas das imagens.`
-                },
-                {
-                    role: 'user',
-                    content: `Aqui está o texto da oferta recebida:
-${textMessage}
+        let parsed = ensureOfferArrays(await requestFinalOfferPayload(textMessage, extractedImagesData, 'primary'));
+        const primaryError = getFinalPayloadValidationError(parsed);
+        if (!primaryError) {
+          return parsed;
+        }
 
-Aqui estão os dados estruturados extraídos das 2 imagens (ida e volta, a ordem pode variar):
-${JSON.stringify(extractedImagesData, null, 2)}
+        await logEvent(null, 'PROCESSING_FINAL_OFFER', `Final payload fallback acionado`, { reason: primaryError });
 
-Por favor, analise esses dados e me devolva um único JSON com os seguintes campos extraídos:
-- origem
-- destino
-- cia_aerea
-- programa_mais_vantajoso (use EXATAMENTE um destes nomes: LATAM Pass, Smiles, Azul Fidelidade, Azul Interline, Iberia Plus, TAP Miles&Go, AAdvantage, ConnectMiles, Privilege Club, Flying Blue, Mileage Plan, Flying Club, SkyMiles, MileagePlus, Aeroplan, Suma Miles, LifeMiles)
-- milhas_ida (número, extraído do texto)
-- milhas_volta (número, extraído do texto)
-- valor_ida_e_volta (número, se tiver no texto)
-- valor_taxas (número total de taxas, em reais ou convertido do dólar aproximado, do texto)
-- datas_ida (array das datas referentes ao trecho de ida)
-- datas_volta (array das datas referentes ao trecho de volta)
-- link_programa (se houver no texto, ex: iberia.com)
-- link_whatsapp (se houver)
-- regiao_origem (região brasileira da cidade de origem: Sudeste, Nordeste, Sul, Centro-Oeste ou Norte)
-- regiao_destino (se destino no Brasil: região brasileira. Se destino internacional: use o continente - América do Norte, América do Sul, América Central, Europa, Ásia, África, Oceania ou Oriente Médio)
-- classe (classe da cabine: Econômica, Executiva ou Primeira Classe. Se não mencionado, use "Econômica")
-- pais_destino (nome do país de destino em português. Ex: "Estados Unidos", "Portugal", "Brasil")
-- continente_destino (continente do destino: América do Norte, América do Sul, América Central, Europa, Ásia, África, Oceania ou Oriente Médio. Se destino no Brasil, use "América do Sul")
-
-Atenção: responda SOMENTE o JSON válido, sem blocos markdown (\`\`\`).`
-                }
-            ],
-            response_format: { type: "json_object" }
-        });
-
-        const output = response.choices[0].message.content || '{}';
-        const parsed = JSON.parse(output);
-
-        // Safeguard: validate required fields
-        if (!parsed.origem || !parsed.destino) {
-          console.warn('GPT final payload missing origem/destino:', parsed);
+        parsed = ensureOfferArrays(await requestFinalOfferPayload(textMessage, extractedImagesData, 'fallback'));
+        const fallbackError = getFinalPayloadValidationError(parsed);
+        if (fallbackError) {
+          console.warn('GPT final payload invalid after fallback:', fallbackError, parsed);
           return {};
         }
-        const milhasIda = Number(parsed.milhas_ida || 0);
-        const milhasVolta = Number(parsed.milhas_volta || 0);
-        if (milhasIda <= 0 || milhasIda > 500000) {
-          console.warn('GPT final payload: milhas_ida out of range:', milhasIda);
-          return {};
-        }
-        // Ensure arrays
-        if (!Array.isArray(parsed.datas_ida)) parsed.datas_ida = [];
-        if (!Array.isArray(parsed.datas_volta)) parsed.datas_volta = [];
 
         return parsed;
     } catch (error) {
