@@ -784,6 +784,42 @@ for (const [cityNorm, iata] of Object.entries(PRIORITY_IATA)) {
   CITY_TO_IATA_MAP[cityNorm] = iata;
 }
 
+export function resolveCanonicalCity(input?: string): string | null {
+  if (!input) return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  if (/^[A-Z]{3}$/i.test(trimmed) && IATA_MAP[trimmed.toUpperCase()]) {
+    return IATA_MAP[trimmed.toUpperCase()];
+  }
+
+  const inputNorm = norm(trimmed);
+  const aliasCity = ALIASES_NORM[inputNorm];
+  if (aliasCity) return aliasCity;
+
+  const knownCities = new Set<string>([
+    ...Object.values(IATA_MAP),
+    ...Object.keys(DESTINATIONS_LOOKUP),
+    ...Object.values(ALIASES_NORM),
+  ]);
+
+  for (const city of knownCities) {
+    if (norm(city) === inputNorm) return city;
+  }
+
+  return trimmed;
+}
+
+export function iataMatchesCity(iata?: string, city?: string): boolean {
+  if (!iata || !city) return false;
+
+  const iataCity = resolveCanonicalCity(iata);
+  const resolvedCity = resolveCanonicalCity(city);
+
+  if (!iataCity || !resolvedCity) return false;
+  return norm(iataCity) === norm(resolvedCity);
+}
+
 export function cityToIata(input: string): string | null {
   if (!input) return null;
   const trimmed = input.trim();

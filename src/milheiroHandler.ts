@@ -33,7 +33,7 @@ const PROGRAMA_ALIASES: Record<string, string> = {
   'tudo azul': 'Azul Fidelidade',
   // Azul Interline
   'azul interline': 'Azul Interline', 'azul linhas aéreas interline': 'Azul Interline',
-  'azul linhas aereas interline': 'Azul Interline',
+  'azul linhas aereas interline': 'Azul Interline', 'azul pelo mundo': 'Azul Interline',
   // Iberia / AVIOS
   'iberia': 'Iberia Plus', 'iberia plus': 'Iberia Plus', 'avios': 'Iberia Plus',
   'avios program': 'Iberia Plus', 'british airways executive club': 'Iberia Plus',
