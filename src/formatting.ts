@@ -967,6 +967,87 @@ export function findDestinationImage(destino?: string, overrides: Record<string,
   return FALLBACK_IMAGE;
 }
 
+// ===================== PAÍS → FLAG EMOJI =====================
+const COUNTRY_FLAGS: Record<string, string> = {
+  "Brasil": "🇧🇷",
+  "Estados Unidos": "🇺🇸",
+  "Canada": "🇨🇦",
+  "Canadá": "🇨🇦",
+  "México": "🇲🇽",
+  "Mexico": "🇲🇽",
+  "Argentina": "🇦🇷",
+  "Chile": "🇨🇱",
+  "Colômbia": "🇨🇴",
+  "Colombia": "🇨🇴",
+  "Peru": "🇵🇪",
+  "Equador": "🇪🇨",
+  "Bolívia": "🇧🇴",
+  "Uruguai": "🇺🇾",
+  "Paraguai": "🇵🇾",
+  "Venezuela": "🇻🇪",
+  "Cuba": "🇨🇺",
+  "República Dominicana": "🇩🇴",
+  "Jamaica": "🇯🇲",
+  "Porto Rico": "🇵🇷",
+  "Panamá": "🇵🇦",
+  "Costa Rica": "🇨🇷",
+  "Guatemala": "🇬🇹",
+  "Honduras": "🇭🇳",
+  "El Salvador": "🇸🇻",
+  "Nicarágua": "🇳🇮",
+  "Belize": "🇧🇿",
+  "Portugal": "🇵🇹",
+  "Espanha": "🇪🇸",
+  "França": "🇫🇷",
+  "Itália": "🇮🇹",
+  "Alemanha": "🇩🇪",
+  "Reino Unido": "🇬🇧",
+  "Países Baixos": "🇳🇱",
+  "Bélgica": "🇧🇪",
+  "Suíça": "🇨🇭",
+  "Áustria": "🇦🇹",
+  "Grécia": "🇬🇷",
+  "Turquia": "🇹🇷",
+  "Polônia": "🇵🇱",
+  "República Tcheca": "🇨🇿",
+  "Hungria": "🇭🇺",
+  "Romênia": "🇷🇴",
+  "Croácia": "🇭🇷",
+  "Sérvia": "🇷🇸",
+  "Noruega": "🇳🇴",
+  "Suécia": "🇸🇪",
+  "Dinamarca": "🇩🇰",
+  "Finlândia": "🇫🇮",
+  "Irlanda": "🇮🇪",
+  "Japão": "🇯🇵",
+  "China": "🇨🇳",
+  "Coreia do Sul": "🇰🇷",
+  "Tailândia": "🇹🇭",
+  "Indonésia": "🇮🇩",
+  "Malásia": "🇲🇾",
+  "Singapura": "🇸🇬",
+  "Filipinas": "🇵🇭",
+  "Vietnã": "🇻🇳",
+  "Índia": "🇮🇳",
+  "Emirados Árabes Unidos": "🇦🇪",
+  "Catar": "🇶🇦",
+  "Israel": "🇮🇱",
+  "Marrocos": "🇲🇦",
+  "Egito": "🇪🇬",
+  "África do Sul": "🇿🇦",
+  "Quênia": "🇰🇪",
+  "Austrália": "🇦🇺",
+  "Nova Zelândia": "🇳🇿",
+};
+
+function countryToFlag(pais?: string): string {
+  if (!pais) return "✈️";
+  const key = Object.keys(COUNTRY_FLAGS).find(k =>
+    norm(k) === norm(pais) || norm(pais).includes(norm(k)) || norm(k).includes(norm(pais))
+  );
+  return key ? COUNTRY_FLAGS[key] : "✈️";
+}
+
 // ===================== DADOS NORMALIZADOS =====================
 function safeStr(v: any, fallback = ""): string {
   return (v ?? "").toString().trim() || fallback;
@@ -1070,7 +1151,7 @@ export function resolveLinkPrograma(linkFromGpt: string | undefined, programaCan
   return PROGRAMA_LINKS[programaCanonical] || ensureHttps(gptLink) || 'https://www.smiles.com.br';
 }
 
-export function buildFormattedMessage(data: any, milheiroPorPrograma: Record<string, number> = {}): string {
+export function buildFormattedMessage(data: any, milheiroPorPrograma: Record<string, number> = {}, isExecutiva = false): string {
   const origem = safeStr(data.origem, "ORIGEM");
   const destino = safeStr(data.destino, "DESTINO");
   const cia = safeStr(data.cia_aerea, "CIA");
@@ -1110,6 +1191,10 @@ export function buildFormattedMessage(data: any, milheiroPorPrograma: Record<str
   const totalValue = isOneWay ? valorIda : (valorIdaEVolta || (valorIda + valorVolta));
   const taxesSuffix = (valorTaxas && valorTaxas > 0) ? `+ ${fmtMoneyBR2(valorTaxas)} em txs` : "+ txs";
 
+  const teaserBlock = isExecutiva
+    ? `${countryToFlag(data.pais_destino)}🥂 *${destino} voando de Executiva da ${cia} por R$ ${fmtMoneyBR(totalValue)}* 😱\\n\\n`
+    : '';
+
   const header =
     `*${upperCity(origem)}* ✈️ *${upperCity(destino)}*\\n` +
     `Cia: ${cia}\\n` +
@@ -1132,10 +1217,10 @@ export function buildFormattedMessage(data: any, milheiroPorPrograma: Record<str
     `*Valor total:* R$ ${fmtMoneyBR(totalValue)} ${taxesSuffix}\\n\\n` +
     `Obs.: Os valores acima poderão ser modificados a qualquer instante, a critério exclusivo da companhia aérea.`;
 
-  return header + idaBlock + voltaBlock + totalBlock;
+  return teaserBlock + header + idaBlock + voltaBlock + totalBlock;
 }
 
-export function buildFormattedMessageCash(data: any): string {
+export function buildFormattedMessageCash(data: any, isExecutiva = false): string {
   const origem = safeStr(data.origem, 'ORIGEM');
   const destino = safeStr(data.destino, 'DESTINO');
   const cia = safeStr(data.cia_aerea, 'CIA');
@@ -1143,6 +1228,10 @@ export function buildFormattedMessageCash(data: any): string {
   const datasIda = Array.isArray(data.datas_ida) ? data.datas_ida : [];
   const datasVolta = Array.isArray(data.datas_volta) ? data.datas_volta : [];
   const isOneWay = !uniq(datasVolta).length;
+
+  const teaserBlock = isExecutiva
+    ? `${countryToFlag(data.pais_destino)}🥂 *${destino} voando de Executiva da ${cia} por R$ ${fmtMoneyBR(preco)}* 😱\\n\\n`
+    : '';
 
   const header =
     `*${upperCity(origem)}* ✈️ *${upperCity(destino)}*\\n` +
@@ -1163,7 +1252,7 @@ export function buildFormattedMessageCash(data: any): string {
 
   const footer = `Obs.: Os valores acima poderão ser modificados a qualquer instante, a critério exclusivo da companhia aérea.`;
 
-  return header + precoBlock + idaBlock + voltaBlock + footer;
+  return teaserBlock + header + precoBlock + idaBlock + voltaBlock + footer;
 }
 
 export function buildWhatsAppLinkCash(data: any): string {

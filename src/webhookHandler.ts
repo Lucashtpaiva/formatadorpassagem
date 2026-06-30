@@ -21,7 +21,13 @@ async function expandRedirectUrl(url: string): Promise<string | null> {
     const response = await fetch(url, { method: 'GET', redirect: 'follow', signal: controller.signal });
     clearTimeout(timeout);
     const finalUrl = response.url;
-    if (!finalUrl || finalUrl.includes('alertadevoos.com.br') || finalUrl.includes('flypass.ai')) {
+    if (
+      !finalUrl ||
+      finalUrl.includes('alertadevoos.com.br') ||
+      finalUrl.includes('flypass.ai') ||
+      finalUrl.includes('wa.me') ||
+      finalUrl.includes('whatsapp.com')
+    ) {
       return null;
     }
     return finalUrl;
@@ -472,16 +478,15 @@ async function processExecutivasCashCaption(phone: string, chatName: string, cap
   }
 
   const linkEmissao = (finalData.link_emissao || '').trim();
-  if (!linkEmissao) {
-    await logEvent(phone, 'OFFER_DISCARDED', `Executivas cash offer discarded: no link_emissao found`, { finalData });
-    return;
-  }
 
-  const expandedLink = await expandRedirectUrl(linkEmissao);
-  if (!expandedLink) {
-    await logEvent(phone, 'OFFER_DISCARDED', `Executivas cash offer discarded: could not expand redirect link`, { link: linkEmissao });
-    return;
-  }
+  const { destino } = finalData;
+  const classeAlerta = finalData.classe || 'Executiva';
+  const formattedMessage = buildFormattedMessageCash(finalData, true);
+  const destinationImage = findDestinationImage(destino, await getFreshDestinationOverrides());
+  const waLink = buildWhatsAppLinkCash(finalData);
+
+  const expandedLink = linkEmissao ? await expandRedirectUrl(linkEmissao) : null;
+  const buyLink = expandedLink || waLink;
 
   if (imageUrl) {
     try {
@@ -497,12 +502,6 @@ async function processExecutivasCashCaption(phone: string, chatName: string, cap
       console.error('Failed to extract IATA from Executivas cash image:', iataErr);
     }
   }
-
-  const { destino } = finalData;
-  const classeAlerta = finalData.classe || 'Executiva';
-  const formattedMessage = buildFormattedMessageCash(finalData);
-  const destinationImage = findDestinationImage(destino, await getFreshDestinationOverrides());
-  const waLink = buildWhatsAppLinkCash(finalData);
 
   const destinationPayload = {
     phone: phone,
@@ -535,7 +534,7 @@ async function processExecutivasCashCaption(phone: string, chatName: string, cap
           {
             id: '1',
             label: 'Comprar Passagem',
-            url: expandedLink,
+            url: buyLink,
             type: 'URL',
           },
           {
@@ -611,14 +610,14 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
   const resolvedLink = resolveLinkPrograma(finalData.link_programa, programaCanonical);
 
   const milheiroPorPrograma = await loadMilheiroConfig();
-  const formattedMessage = buildFormattedMessage(finalData, milheiroPorPrograma);
-  const destinationImage = findDestinationImage(destino, await getFreshDestinationOverrides());
-  const waLink = buildWhatsAppLink(finalData, milheiroPorPrograma);
-
   // Alertas Premium — grupo Executivas Premium sempre força classe Executiva
   const classeAlerta = chatName.includes('Executivas Premium')
     ? 'Executiva'
     : (finalData.classe || 'Econômica');
+  const isExecutivaMiles = chatName.includes('Executivas Premium');
+  const formattedMessage = buildFormattedMessage(finalData, milheiroPorPrograma, isExecutivaMiles);
+  const destinationImage = findDestinationImage(destino, await getFreshDestinationOverrides());
+  const waLink = buildWhatsAppLink(finalData, milheiroPorPrograma);
 
   // Calcular valores convertidos via milheiro
   const milheiroValor = milheiroPorPrograma[programaCanonical] || 0;
