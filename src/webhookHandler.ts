@@ -615,8 +615,10 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
   const destinationImage = findDestinationImage(destino, await getFreshDestinationOverrides());
   const waLink = buildWhatsAppLink(finalData, milheiroPorPrograma);
 
-  // Alertas Premium
-  const classeAlerta = finalData.classe || 'Econômica';
+  // Alertas Premium — grupo Executivas Premium sempre força classe Executiva
+  const classeAlerta = chatName.includes('Executivas Premium')
+    ? 'Executiva'
+    : (finalData.classe || 'Econômica');
 
   // Calcular valores convertidos via milheiro
   const milheiroValor = milheiroPorPrograma[programaCanonical] || 0;
