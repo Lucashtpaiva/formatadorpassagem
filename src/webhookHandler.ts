@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { supabase } from './supabaseClient';
-import { processImageWithGPT, generateFinalOfferPayload, parseCaptionOffer, extractIataFromImage } from './openaiClient';
-import { findDestinationImage, buildFormattedMessage, buildWhatsAppLink, isBrazilianOrigin, ensureHttps, resolveLinkPrograma, normalizeDatePairs, iataMatchesCity } from './formatting';
+import { processImageWithGPT, generateFinalOfferPayload, parseCaptionOffer, parseCashCaptionOffer, extractIataFromImage } from './openaiClient';
+import { findDestinationImage, buildFormattedMessage, buildFormattedMessageCash, buildWhatsAppLink, buildWhatsAppLinkCash, isBrazilianOrigin, ensureHttps, resolveLinkPrograma, normalizeDatePairs, iataMatchesCity } from './formatting';
 import { normalizeProgramaName } from './milheiroHandler';
 import { logEvent } from './logger';
 import { loadMilheiroConfig } from './milheiroHandler';
@@ -13,6 +13,22 @@ type IataCandidate = {
   iata_destino?: string;
   imageUrl?: string | null;
 };
+
+async function expandRedirectUrl(url: string): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(url, { method: 'GET', redirect: 'follow', signal: controller.signal });
+    clearTimeout(timeout);
+    const finalUrl = response.url;
+    if (!finalUrl || finalUrl.includes('alertadevoos.com.br') || finalUrl.includes('flypass.ai')) {
+      return null;
+    }
+    return finalUrl;
+  } catch {
+    return null;
+  }
+}
 
 async function postDestinationWebhook(url: string, payload: unknown) {
   const response = await fetch(url, {
@@ -150,8 +166,14 @@ export async function handleWhatsAppWebhook(req: Request, res: Response) {
         captionRowId = captionRow?.[0]?.id || null;
       }
 
+      const isExecutivasCash = chatName.includes('Executivas Premium') && !image.caption.toLowerCase().includes('milhas');
+
       try {
-        await processAlertaPremiumCaption(phone, chatName, image.caption, image.imageUrl);
+        if (isExecutivasCash) {
+          await processExecutivasCashCaption(phone, chatName, image.caption, image.imageUrl);
+        } else {
+          await processAlertaPremiumCaption(phone, chatName, image.caption, image.imageUrl);
+        }
         // Mark as processed after successful processing
         if (captionRowId) {
           await supabase.from('whatsapp_offers_temp').update({ processed: true }).eq('id', captionRowId);
@@ -425,6 +447,115 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
         .in('id', messageIds);
     }
   }
+}
+
+// ===== Executivas Premium: cash caption → full offer =====
+async function processExecutivasCashCaption(phone: string, chatName: string, caption: string, imageUrl?: string) {
+  await logEvent(phone, 'PROCESSING_FINAL_OFFER', `Parsing Executivas Premium cash caption for ${chatName}`, { source: 'executivas_cash' });
+
+  const finalData = await parseCashCaptionOffer(caption);
+
+  if (!finalData) {
+    await logEvent(phone, 'OFFER_DISCARDED', `Executivas cash caption could not be parsed`, { caption });
+    return;
+  }
+
+  const precoCash = Number(finalData.preco_cash || 0);
+  if (precoCash <= 0) {
+    await logEvent(phone, 'OFFER_DISCARDED', `Executivas cash offer discarded: preco_cash is zero`, { finalData });
+    return;
+  }
+
+  if (!isBrazilianOrigin(finalData.origem)) {
+    await logEvent(phone, 'OFFER_DISCARDED', `Executivas cash offer discarded: origin "${finalData.origem}" is not in Brazil`, { finalData });
+    return;
+  }
+
+  const linkEmissao = (finalData.link_emissao || '').trim();
+  if (!linkEmissao) {
+    await logEvent(phone, 'OFFER_DISCARDED', `Executivas cash offer discarded: no link_emissao found`, { finalData });
+    return;
+  }
+
+  const expandedLink = await expandRedirectUrl(linkEmissao);
+  if (!expandedLink) {
+    await logEvent(phone, 'OFFER_DISCARDED', `Executivas cash offer discarded: could not expand redirect link`, { link: linkEmissao });
+    return;
+  }
+
+  if (imageUrl) {
+    try {
+      const iataData = await extractIataFromImage(imageUrl);
+      if (iataData) {
+        await applyValidatedImageIata(phone, 'Executivas Premium Cash', finalData, [{
+          iata_origem: iataData.iata_origem,
+          iata_destino: iataData.iata_destino,
+          imageUrl,
+        }]);
+      }
+    } catch (iataErr: any) {
+      console.error('Failed to extract IATA from Executivas cash image:', iataErr);
+    }
+  }
+
+  const { destino } = finalData;
+  const classeAlerta = finalData.classe || 'Executiva';
+  const formattedMessage = buildFormattedMessageCash(finalData);
+  const destinationImage = findDestinationImage(destino, await getFreshDestinationOverrides());
+  const waLink = buildWhatsAppLinkCash(finalData);
+
+  const destinationPayload = {
+    phone: phone,
+    message: 'Oferta Encontrada!',
+    fonte: 'Alerta de Voos',
+    grupo: chatName || '',
+    cabine: classeAlerta,
+    cidade_origem: finalData.origem || '',
+    cidade_destino: finalData.destino || '',
+    regiao_origem: finalData.regiao_origem || '',
+    regiao_destino: finalData.regiao_destino || '',
+    iata_origem: finalData.iata_origem || '',
+    iata_destino: finalData.iata_destino || '',
+    datas_ida: finalData.datas_ida || [],
+    datas_volta: finalData.datas_volta || [],
+    classe: classeAlerta,
+    pais_destino: finalData.pais_destino || '',
+    continente_destino: finalData.continente_destino || '',
+    milhas_total: 0,
+    preco_ida: 0,
+    preco_volta: 0,
+    preco_cash: precoCash,
+    dinheiro_total: precoCash,
+    verificado: null,
+    carousel: [
+      {
+        text: formattedMessage,
+        image: destinationImage,
+        buttons: [
+          {
+            id: '1',
+            label: 'Comprar Passagem',
+            url: expandedLink,
+            type: 'URL',
+          },
+          {
+            id: '2',
+            label: 'Emitir via WhatsApp',
+            url: waLink,
+            type: 'URL',
+          },
+        ],
+      },
+    ],
+  };
+
+  await sendDestinationPayload(
+    phone,
+    destinationPayload,
+    'Executivas Premium cash offer sent to Destination Webhook',
+    'DESTINATION_WEBHOOK_URL is missing!',
+    'Failed to send Executivas Premium cash offer to webhook'
+  );
 }
 
 // ===== Alertas Premium: single caption → full offer =====

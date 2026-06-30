@@ -1135,6 +1135,50 @@ export function buildFormattedMessage(data: any, milheiroPorPrograma: Record<str
   return header + idaBlock + voltaBlock + totalBlock;
 }
 
+export function buildFormattedMessageCash(data: any): string {
+  const origem = safeStr(data.origem, 'ORIGEM');
+  const destino = safeStr(data.destino, 'DESTINO');
+  const cia = safeStr(data.cia_aerea, 'CIA');
+  const preco = Number(data.preco_cash || 0);
+  const datasIda = Array.isArray(data.datas_ida) ? data.datas_ida : [];
+  const datasVolta = Array.isArray(data.datas_volta) ? data.datas_volta : [];
+  const isOneWay = !uniq(datasVolta).length;
+
+  const header =
+    `*${upperCity(origem)}* ✈️ *${upperCity(destino)}*\\n` +
+    `Cia: ${cia}\\n\\n`;
+
+  const precoBlock = `💰 *R$ ${fmtMoneyBR2(preco)} com taxas inclusas*\\n\\n`;
+
+  const idaBlock =
+    `*Ida:* 🛫\\n` +
+    `${formatDatesBlock(datasIda)}\\n\\n`;
+
+  let voltaBlock = '';
+  if (!isOneWay) {
+    voltaBlock =
+      `*Volta:* 🛬\\n` +
+      `${formatDatesBlock(datasVolta)}\\n\\n`;
+  }
+
+  const footer = `Obs.: Os valores acima poderão ser modificados a qualquer instante, a critério exclusivo da companhia aérea.`;
+
+  return header + precoBlock + idaBlock + voltaBlock + footer;
+}
+
+export function buildWhatsAppLinkCash(data: any): string {
+  const formattedMessage = buildFormattedMessageCash(data).replace(/\\n/g, '\n');
+
+  const now = new Date();
+  const dias = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+  const meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const timestamp = `Oferta verificada ${dias[now.getDay()]}, ${now.getDate()} de ${meses[now.getMonth()]} de ${now.getFullYear()} às ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' })}.`;
+
+  const text = `✈️ Quero comprar uma passagem encontrada pelo\nPassagem Secreta:\n\n` + formattedMessage + `\n\n` + timestamp;
+
+  return `https://wa.me/5522981459289?text=${encodeURIComponent(text)}`;
+}
+
 export function buildWhatsAppLink(data: any, milheiroPorPrograma: Record<string, number> = {}): string {
   // Reuse the exact same formatted message from the carousel text field
   const formattedMessage = buildFormattedMessage(data, milheiroPorPrograma);

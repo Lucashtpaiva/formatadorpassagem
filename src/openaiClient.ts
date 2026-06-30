@@ -398,6 +398,57 @@ Responda SOMENTE o JSON, sem blocos de código markdown.`
   }
 }
 
+export async function parseCashCaptionOffer(caption: string): Promise<any> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4.1',
+      messages: [
+        {
+          role: 'system',
+          content: 'Você é um assistente especializado em extrair dados de ofertas de passagens aéreas pagas em dinheiro (não em milhas) a partir de mensagens do WhatsApp. Extraia as informações e retorne um JSON estruturado.',
+        },
+        {
+          role: 'user',
+          content: `Extraia os dados desta oferta de passagem paga em dinheiro:
+
+${caption}
+
+Retorne um JSON com exatamente estes campos:
+- origem (cidade de origem, sem código de aeroporto)
+- destino (cidade de destino, sem código de aeroporto)
+- cia_aerea (companhia aérea)
+- preco_cash (valor numérico em reais, ex: 6864.32. Sem R$, sem pontos de milhar, use ponto como separador decimal)
+- tipo_viagem ("IDA" ou "IDA E VOLTA")
+- datas_ida (array de datas no formato "dd/mm/aaaa")
+- datas_volta (array de datas no formato "dd/mm/aaaa". Se só ida, use [])
+- link_emissao (URL do link de compra encontrado na mensagem. Se não houver, use "")
+- regiao_origem (região brasileira da cidade de origem: Sudeste, Nordeste, Sul, Centro-Oeste ou Norte)
+- regiao_destino (se destino no Brasil: região brasileira. Se internacional: continente - América do Norte, América do Sul, América Central, Europa, Ásia, África, Oceania ou Oriente Médio)
+- classe ("Econômica", "Executiva" ou "Primeira Classe". Se não mencionado, use "Executiva")
+- pais_destino (nome do país de destino em português)
+- continente_destino (continente do destino)
+
+Regras:
+- Use nomes de cidades em português, não códigos IATA.
+- preco_cash deve ser um número (ex: 6864.32), não uma string com R$ ou vírgulas.
+- O link_emissao deve ser a URL de compra/emissão da mensagem (ex: https://alertadevoos.com.br/XXXX). Não use links do Flypass ou redes sociais.
+- Responda SOMENTE o JSON válido, sem blocos markdown.`,
+        },
+      ],
+      response_format: { type: 'json_object' },
+    });
+
+    const parsed = parseJsonObject(response.choices[0].message.content || '{}');
+    if (!Array.isArray(parsed.datas_ida)) parsed.datas_ida = [];
+    if (!Array.isArray(parsed.datas_volta)) parsed.datas_volta = [];
+    return parsed;
+  } catch (error: any) {
+    const errMsg = error?.message || String(error);
+    await logEvent(null, 'ERROR', `OpenAI parseCashCaptionOffer failed: ${errMsg.substring(0, 150)}`, { error: errMsg });
+    return null;
+  }
+}
+
 export async function generateFinalOfferPayload(textMessage: string, extractedImagesData: any[]): Promise<any> {
     try {
         let parsed = ensureOfferArrays(await requestFinalOfferPayload(textMessage, extractedImagesData, 'primary'));
