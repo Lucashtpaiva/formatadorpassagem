@@ -118,6 +118,7 @@ export async function handleWhatsAppWebhook(req: Request, res: Response) {
     // ===== "Alertas Premium" single-caption flow =====
     const isAlertaPremiumGroup = chatName && (
       chatName.includes('Alertas Premium') ||
+      chatName.includes('Executivas Premium') ||
       chatName.includes('TESTE PREMIUM')
     );
     if (isAlertaPremiumGroup && image && image.caption) {
