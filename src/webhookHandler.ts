@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { supabase } from './supabaseClient';
 import { processImageWithGPT, generateFinalOfferPayload, parseCaptionOffer, parseCashCaptionOffer, extractIataFromImage } from './openaiClient';
-import { findDestinationImage, buildFormattedMessage, buildFormattedMessageCash, buildWhatsAppLink, buildWhatsAppLinkCash, isBrazilianOrigin, ensureHttps, resolveLinkPrograma, normalizeDatePairs, iataMatchesCity } from './formatting';
+import { findDestinationImage, buildFormattedMessage, buildFormattedMessageCash, buildWhatsAppLink, buildWhatsAppLinkCash, isBrazilianOrigin, ensureHttps, resolveLinkPrograma, normalizeDatePairs, iataMatchesCity, cityToIata } from './formatting';
+import { buildAirlineBookingUrl, buildProgramBookingUrl } from './airlineBookingUrl';
 import { normalizeProgramaName } from './milheiroHandler';
 import { logEvent } from './logger';
 import { loadMilheiroConfig } from './milheiroHandler';
@@ -13,6 +14,7 @@ type IataCandidate = {
   iata_destino?: string;
   imageUrl?: string | null;
 };
+
 
 async function expandRedirectUrl(url: string): Promise<string | null> {
   try {
@@ -386,14 +388,14 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
           buttons: [
             {
               id: "1",
-              label: "Comprar com Milhas",
-              url: resolvedLink,
+              label: "Comprar em Dinheiro",
+              url: waLink,
               type: "URL"
             },
             {
               id: "2",
-              label: "Emitir via WhatsApp",
-              url: waLink,
+              label: "Comprar com Milhas",
+              url: resolvedLink,
               type: "URL"
             }
           ]
@@ -477,16 +479,26 @@ async function processExecutivasCashCaption(phone: string, chatName: string, cap
     return;
   }
 
-  const linkEmissao = (finalData.link_emissao || '').trim();
-
   const { destino } = finalData;
   const classeAlerta = finalData.classe || 'Executiva';
-  const formattedMessage = buildFormattedMessageCash(finalData, true);
   const destinationImage = findDestinationImage(destino, await getFreshDestinationOverrides());
   const waLink = buildWhatsAppLinkCash(finalData);
 
-  const expandedLink = linkEmissao ? await expandRedirectUrl(linkEmissao) : null;
-  const buyLink = expandedLink || waLink;
+  const iataOrigem = cityToIata(finalData.origem) || '';
+  const iataDestino = cityToIata(finalData.destino) || '';
+  const airlineLink = buildAirlineBookingUrl(
+    finalData.cia_aerea,
+    iataOrigem,
+    iataDestino,
+    finalData.datas_ida,
+    finalData.datas_volta,
+    classeAlerta
+  );
+  const linkEmissao = (finalData.link_emissao || '').trim();
+  const expandedLink = !airlineLink && linkEmissao ? await expandRedirectUrl(linkEmissao) : null;
+  const directLink = airlineLink || expandedLink;
+  const buyLink = directLink || waLink;
+  const formattedMessage = buildFormattedMessageCash(finalData, true, !!airlineLink);
 
   if (imageUrl) {
     try {
@@ -607,7 +619,18 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
 
   const { destino } = finalData;
   const programaCanonical = normalizeProgramaName(finalData.programa_mais_vantajoso || '');
-  const resolvedLink = resolveLinkPrograma(finalData.link_programa, programaCanonical);
+
+  const iataOrigem = finalData.iata_origem || cityToIata(finalData.origem) || '';
+  const iataDestino = finalData.iata_destino || cityToIata(finalData.destino) || '';
+  const programLink = buildProgramBookingUrl(
+    programaCanonical,
+    iataOrigem,
+    iataDestino,
+    finalData.datas_ida || [],
+    finalData.datas_volta || [],
+    finalData.classe || 'Econômica'
+  );
+  const resolvedLink = programLink || resolveLinkPrograma(finalData.link_programa, programaCanonical);
 
   const milheiroPorPrograma = await loadMilheiroConfig();
   // Alertas Premium — grupo Executivas Premium sempre força classe Executiva
@@ -654,14 +677,14 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
         buttons: [
           {
             id: "1",
-            label: "Comprar com Milhas",
-            url: resolvedLink,
+            label: "Comprar em Dinheiro",
+            url: waLink,
             type: "URL"
           },
           {
             id: "2",
-            label: "Emitir via WhatsApp",
-            url: waLink,
+            label: "Comprar com Milhas",
+            url: resolvedLink,
             type: "URL"
           }
         ]

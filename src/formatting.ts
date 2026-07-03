@@ -1192,7 +1192,7 @@ export function buildFormattedMessage(data: any, milheiroPorPrograma: Record<str
   const taxesSuffix = (valorTaxas && valorTaxas > 0) ? `+ ${fmtMoneyBR2(valorTaxas)} em txs` : "+ txs";
 
   const teaserBlock = isExecutiva
-    ? `${countryToFlag(data.pais_destino)}🥂 *${destino} voando de Executiva da ${cia} por R$ ${fmtMoneyBR(totalValue)}* 😱\\n\\n`
+    ? `${countryToFlag(data.pais_destino)}🥂 *${destino} voando de Executiva da ${cia} por R$ ${fmtMoneyBR(valorIda)}* 😱\\n\\n`
     : '';
 
   const header =
@@ -1220,7 +1220,7 @@ export function buildFormattedMessage(data: any, milheiroPorPrograma: Record<str
   return teaserBlock + header + idaBlock + voltaBlock + totalBlock;
 }
 
-export function buildFormattedMessageCash(data: any, isExecutiva = false): string {
+export function buildFormattedMessageCash(data: any, isExecutiva = false, hasDirectLink = false): string {
   const origem = safeStr(data.origem, 'ORIGEM');
   const destino = safeStr(data.destino, 'DESTINO');
   const cia = safeStr(data.cia_aerea, 'CIA');
@@ -1250,9 +1250,13 @@ export function buildFormattedMessageCash(data: any, isExecutiva = false): strin
       `${formatDatesBlock(datasVolta)}\\n\\n`;
   }
 
+  const directLinkBlock = hasDirectLink
+    ? `🔗 *Compra disponível direto no site da companhia aérea*\\n\\n`
+    : '';
+
   const footer = `Obs.: Os valores acima poderão ser modificados a qualquer instante, a critério exclusivo da companhia aérea.`;
 
-  return teaserBlock + header + precoBlock + idaBlock + voltaBlock + footer;
+  return teaserBlock + header + precoBlock + idaBlock + voltaBlock + directLinkBlock + footer;
 }
 
 export function buildWhatsAppLinkCash(data: any): string {
