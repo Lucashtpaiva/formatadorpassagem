@@ -9,6 +9,8 @@ import { loadMilheiroConfig } from './milheiroHandler';
 import { getFreshDestinationOverrides } from './destinationHandler';
 import { verifyOffer, saveBmResult, getBmAirline, isBmEnabled } from './buscamilhasClient';
 
+const WA_SUPORTE = 'https://wa.me/5522981459289';
+
 type IataCandidate = {
   iata_origem?: string;
   iata_destino?: string;
@@ -308,7 +310,10 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
 
     const { destino } = finalData;
     const programaCanonical = normalizeProgramaName(finalData.programa_mais_vantajoso || '');
-    const resolvedLink = resolveLinkPrograma(finalData.link_programa, programaCanonical);
+    const iataOrigem = finalData.iata_origem || cityToIata(finalData.origem) || '';
+    const iataDestino = finalData.iata_destino || cityToIata(finalData.destino) || '';
+    const programLink = buildProgramBookingUrl(programaCanonical, iataOrigem, iataDestino, finalData.datas_ida || [], finalData.datas_volta || [], finalData.classe || 'Econômica');
+    const resolvedLink = programLink || resolveLinkPrograma(finalData.link_programa, programaCanonical);
 
     // Detect source and cabin from chatName
     const fonte = (chatName || '').toLowerCase().includes('alerta') ? 'Alerta de Voos' : 'Passageiro de Primeira';
@@ -389,7 +394,7 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
             {
               id: "1",
               label: "Comprar em Dinheiro",
-              url: waLink,
+              url: WA_SUPORTE,
               type: "URL"
             },
             {
@@ -678,7 +683,7 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
           {
             id: "1",
             label: "Comprar em Dinheiro",
-            url: waLink,
+            url: WA_SUPORTE,
             type: "URL"
           },
           {
