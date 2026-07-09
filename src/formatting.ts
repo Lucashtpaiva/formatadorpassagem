@@ -1262,12 +1262,7 @@ export function buildFormattedMessageCash(data: any, isExecutiva = false, hasDir
 export function buildWhatsAppLinkCash(data: any): string {
   const formattedMessage = buildFormattedMessageCash(data).replace(/\\n/g, '\n');
 
-  const now = new Date();
-  const dias = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
-  const meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-  const timestamp = `Oferta verificada ${dias[now.getDay()]}, ${now.getDate()} de ${meses[now.getMonth()]} de ${now.getFullYear()} às ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' })}.`;
-
-  const text = `✈️ Quero comprar uma passagem encontrada pelo\nPassagem Secreta:\n\n` + formattedMessage + `\n\n` + timestamp;
+  const text = `✈️ Quero comprar uma passagem encontrada pelo\nPassagem Secreta:\n\n` + formattedMessage;
 
   return `https://wa.me/5522981459289?text=${encodeURIComponent(text)}`;
 }
@@ -1279,19 +1274,7 @@ export function buildWhatsAppLink(data: any, milheiroPorPrograma: Record<string,
   // Convert \\n (literal escaped newlines for WhatsApp API) to real newlines
   const messageBody = formattedMessage.replace(/\\n/g, '\n');
 
-  // Build verification timestamp in Brazilian Portuguese
-  const now = new Date();
-  const dias = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
-  const meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-  const diaSemana = dias[now.getDay()];
-  const dia = now.getDate();
-  const mes = meses[now.getMonth()];
-  const ano = now.getFullYear();
-  const hora = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' });
-  const timestamp = `Oferta verificada ${diaSemana}, ${dia} de ${mes} de ${ano} às ${hora}.`;
-
-  const text = `✈️ Quero emitir uma passagem encontrada pelo\nPassagem Secreta:\n\n` +
-    messageBody + `\n\n` + timestamp;
+  const text = `✈️ Quero emitir uma passagem encontrada pelo\nPassagem Secreta:\n\n` + messageBody;
 
   const encodedText = encodeURIComponent(text);
   const waNumber = "5522981459289";

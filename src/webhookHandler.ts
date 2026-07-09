@@ -502,7 +502,6 @@ async function processExecutivasCashCaption(phone: string, chatName: string, cap
   const linkEmissao = (finalData.link_emissao || '').trim();
   const expandedLink = !airlineLink && linkEmissao ? await expandRedirectUrl(linkEmissao) : null;
   const directLink = airlineLink || expandedLink;
-  const buyLink = directLink || waLink;
   const formattedMessage = buildFormattedMessageCash(finalData, true, !!airlineLink);
 
   if (imageUrl) {
@@ -547,20 +546,14 @@ async function processExecutivasCashCaption(phone: string, chatName: string, cap
       {
         text: formattedMessage,
         image: destinationImage,
-        buttons: [
+        buttons: directLink ? [
           {
             id: '1',
             label: 'Comprar Passagem',
-            url: buyLink,
+            url: directLink,
             type: 'URL',
           },
-          {
-            id: '2',
-            label: 'Emitir via WhatsApp',
-            url: waLink,
-            type: 'URL',
-          },
-        ],
+        ] : [],
       },
     ],
   };
@@ -627,25 +620,37 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
 
   const iataOrigem = finalData.iata_origem || cityToIata(finalData.origem) || '';
   const iataDestino = finalData.iata_destino || cityToIata(finalData.destino) || '';
-  const programLink = buildProgramBookingUrl(
-    programaCanonical,
-    iataOrigem,
-    iataDestino,
-    finalData.datas_ida || [],
-    finalData.datas_volta || [],
-    finalData.classe || 'Econômica'
-  );
-  const resolvedLink = programLink || resolveLinkPrograma(finalData.link_programa, programaCanonical);
 
   const milheiroPorPrograma = await loadMilheiroConfig();
   // Alertas Premium — grupo Executivas Premium sempre força classe Executiva
   const classeAlerta = chatName.includes('Executivas Premium')
     ? 'Executiva'
     : (finalData.classe || 'Econômica');
+
+  const programLink = buildProgramBookingUrl(
+    programaCanonical,
+    iataOrigem,
+    iataDestino,
+    finalData.datas_ida || [],
+    finalData.datas_volta || [],
+    classeAlerta
+  );
+  const resolvedLink = programLink || resolveLinkPrograma(finalData.link_programa, programaCanonical);
   const isExecutivaMiles = chatName.includes('Executivas Premium');
   const formattedMessage = buildFormattedMessage(finalData, milheiroPorPrograma, isExecutivaMiles);
   const destinationImage = findDestinationImage(destino, await getFreshDestinationOverrides());
   const waLink = buildWhatsAppLink(finalData, milheiroPorPrograma);
+
+  // Para Executivas: tenta montar link direto da companhia para o botão cash
+  const airlineCashLink = isExecutivaMiles
+    ? buildAirlineBookingUrl(
+        finalData.cia_aerea || '',
+        iataOrigem, iataDestino,
+        finalData.datas_ida || [],
+        finalData.datas_volta || [],
+        classeAlerta
+      )
+    : null;
 
   // Calcular valores convertidos via milheiro
   const milheiroValor = milheiroPorPrograma[programaCanonical] || 0;
@@ -653,6 +658,16 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
   const precoIda = milheiroValor > 0 ? Math.round((milhasIda / 1000) * milheiroValor * 100) / 100 : 0;
   const precoVolta = milheiroValor > 0 ? Math.round((milhasVolta / 1000) * milheiroValor * 100) / 100 : 0;
   const dinheiroTotal = Math.round((precoIda + precoVolta) * 100) / 100;
+
+  // Monta botões: Executivas nunca usa WA Suporte — só link direto da CIA ou milhas
+  const executivasButtons = [
+    ...(airlineCashLink ? [{ id: "1", label: "Comprar em Dinheiro", url: airlineCashLink, type: "URL" }] : []),
+    ...(resolvedLink ? [{ id: airlineCashLink ? "2" : "1", label: "Comprar com Milhas", url: resolvedLink, type: "URL" }] : []),
+  ];
+  const normalButtons = [
+    { id: "1", label: "Comprar em Dinheiro", url: WA_SUPORTE, type: "URL" },
+    ...(resolvedLink ? [{ id: "2", label: "Comprar com Milhas", url: resolvedLink, type: "URL" }] : []),
+  ];
 
   const destinationPayload = {
     phone: phone,
@@ -679,20 +694,7 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
       {
         text: formattedMessage,
         image: destinationImage,
-        buttons: [
-          {
-            id: "1",
-            label: "Comprar em Dinheiro",
-            url: WA_SUPORTE,
-            type: "URL"
-          },
-          {
-            id: "2",
-            label: "Comprar com Milhas",
-            url: resolvedLink,
-            type: "URL"
-          }
-        ]
+        buttons: isExecutivaMiles ? executivasButtons : normalButtons,
       }
     ]
   };

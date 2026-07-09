@@ -91,7 +91,7 @@ const AIRLINE_BUILDERS: Record<string, BuildFn> = {
             ? "PremiumBusiness"
             : "Economy",
       redemption: "false",
-      sort: "cheapest",
+      sort: "PRICE",
     }),
 
   gol: (o, d, dep, ret, _cabin) =>
@@ -117,17 +117,22 @@ const AIRLINE_BUILDERS: Record<string, BuildFn> = {
       cabin: cabin === "business" ? "business" : "economy",
     }),
 
-  copa: (o, d, dep, ret, cabin) =>
-    buildUrl("https://www.copaair.com/pt-br/web/br/busca", {
-      departure: o,
-      arrival: d,
-      date: toCOPA(dep),
-      ...(ret ? { returnDate: toCOPA(ret) } : {}),
-      cabin: cabin === "business" ? "C" : cabin === "first" ? "F" : "Y",
+  copa: (o, d, dep, ret, _cabin) =>
+    buildUrl("https://shopping.copaair.com/", {
+      roundtrip: ret ? "true" : "false",
+      area1: o,
+      area2: d,
+      date1: toISO(dep),
+      ...(ret ? { date2: toISO(ret) } : {}),
+      flexible_dates_v2: "false",
       adults: "1",
       children: "0",
       infants: "0",
-      currency: "BRL",
+      isMiles: "false",
+      advanced_air_search: "false",
+      stopover: "false",
+      sf: "br",
+      langid: "pt",
     }),
 
   iberia: (o, d, dep, ret, cabin) =>
@@ -433,7 +438,7 @@ const PROGRAM_BUILDERS: Record<string, ProgramBuildFn> = {
       adt: '1', inf: '0', chd: '0',
       cabin: cabin === 'business' ? 'Business' : cabin === 'first' ? 'PremiumBusiness' : 'Economy',
       redemption: 'true',
-      sort: 'cheapest',
+      sort: 'PRICE',
     }),
 
   smiles: (o, d, dep, ret, cabin) =>
@@ -456,24 +461,32 @@ const PROGRAM_BUILDERS: Record<string, ProgramBuildFn> = {
       cabin: cabin === 'business' ? 'business' : 'economy',
     }),
 
-  'azul interline': (o, d, dep, ret, cabin) =>
-    buildUrl('https://www.tudoazul.com.br/emissao', {
-      originAirportCode: o, destinationAirportCode: d,
-      departureDate: toISO(dep),
-      ...(ret ? { returnDate: toISO(ret) } : {}),
-      adults: '1',
-      cabin: cabin === 'business' ? 'business' : 'economy',
-    }),
+  'azul interline': (o, d, dep, ret, cabin) => {
+    const tripType = ret ? 'RT' : 'OW';
+    const retDate = ret ? toISO(ret) : '-';
+    const cabinStr = cabin === 'business' ? 'BUSINESS' : 'ECONOMY';
+    return `https://azulpelomundo.voeazul.com.br/flights/${tripType}/${o}/${d}/-/-/${toISO(dep)}/${retDate}/1/0/0/0/0/ALL/F/${cabinStr}/-/-/-/-/A/-`;
+  },
 
-  'iberia plus': (o, d, dep, ret, cabin) =>
-    buildUrl('https://www.iberia.com/br/comprar/buscador/', {
-      origen: o, destino: d,
-      fechaIda: toDDMMYYYY(dep),
-      ...(ret ? { fechaVuelta: toDDMMYYYY(ret) } : {}),
-      adultos: '1',
-      cabina: cabin === 'business' ? 'C' : cabin === 'first' ? 'F' : 'Y',
-      modo: 'avios',
-    }),
+  'iberia plus': (o, d, dep, ret, cabin) => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const iberiaMonth = (date: Date) => `${date.getFullYear()}${pad(date.getMonth() + 1)}`;
+    const fareType = cabin === 'business' ? 'B' : 'Y';
+    const params: [string, string][] = [
+      ['market', 'US'], ['fromMarket', 'BR'], ['language', 'pt'],
+      ['appliesOMB', 'false'], ['splitEndCity', 'false'], ['initializedOMB', 'true'],
+      ['flexible', 'true'], ['TRIP_TYPE', ret ? '1' : '2'],
+      ['BEGIN_CITY_01', o], ['END_CITY_01', d],
+      ['BEGIN_DAY_01', pad(dep.getDate())], ['BEGIN_MONTH_01', iberiaMonth(dep)], ['BEGIN_YEAR_01', String(dep.getFullYear())],
+      ['END_DAY_01', ret ? pad(ret.getDate()) : ''], ['END_MONTH_01', ret ? iberiaMonth(ret) : ''], ['END_YEAR_01', ret ? String(ret.getFullYear()) : ''],
+      ['FARE_TYPE', fareType], ['quadrigam', 'IBADVS'],
+      ['ADT', '1'], ['CHD', '0'], ['INF', '0'],
+      ['residentCode', ''], ['familianumerosa', ''], ['boton', 'Buscar'],
+      ['bookingMarket', 'BR'], ['pagoAvios', 'true'],
+    ];
+    const qs = params.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+    return `https://www.iberia.com/flights/?${qs}#!/availability`;
+  },
 
   'tap miles&go': (o, d, dep, ret, cabin) =>
     buildUrl('https://www.flytap.com/pt-br/voos/pesquisa', {
