@@ -487,7 +487,6 @@ async function processExecutivasCashCaption(phone: string, chatName: string, cap
   const { destino } = finalData;
   const classeAlerta = finalData.classe || 'Executiva';
   const destinationImage = findDestinationImage(destino, await getFreshDestinationOverrides());
-  const waLink = buildWhatsAppLinkCash(finalData);
 
   const iataOrigem = cityToIata(finalData.origem) || '';
   const iataDestino = cityToIata(finalData.destino) || '';
@@ -641,17 +640,6 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
   const destinationImage = findDestinationImage(destino, await getFreshDestinationOverrides());
   const waLink = buildWhatsAppLink(finalData, milheiroPorPrograma);
 
-  // Para Executivas: tenta montar link direto da companhia para o botão cash
-  const airlineCashLink = isExecutivaMiles
-    ? buildAirlineBookingUrl(
-        finalData.cia_aerea || '',
-        iataOrigem, iataDestino,
-        finalData.datas_ida || [],
-        finalData.datas_volta || [],
-        classeAlerta
-      )
-    : null;
-
   // Calcular valores convertidos via milheiro
   const milheiroValor = milheiroPorPrograma[programaCanonical] || 0;
   const milhasTotal = milhasIda + milhasVolta;
@@ -659,12 +647,8 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
   const precoVolta = milheiroValor > 0 ? Math.round((milhasVolta / 1000) * milheiroValor * 100) / 100 : 0;
   const dinheiroTotal = Math.round((precoIda + precoVolta) * 100) / 100;
 
-  // Monta botões: Executivas nunca usa WA Suporte — só link direto da CIA ou milhas
-  const executivasButtons = [
-    ...(airlineCashLink ? [{ id: "1", label: "Comprar em Dinheiro", url: airlineCashLink, type: "URL" }] : []),
-    ...(resolvedLink ? [{ id: airlineCashLink ? "2" : "1", label: "Comprar com Milhas", url: resolvedLink, type: "URL" }] : []),
-  ];
-  const normalButtons = [
+  // Oferta em milhas: "Comprar em Dinheiro" sempre vai para o WhatsApp das emissões
+  const milesButtons = [
     { id: "1", label: "Comprar em Dinheiro", url: WA_SUPORTE, type: "URL" },
     ...(resolvedLink ? [{ id: "2", label: "Comprar com Milhas", url: resolvedLink, type: "URL" }] : []),
   ];
@@ -694,7 +678,7 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
       {
         text: formattedMessage,
         image: destinationImage,
-        buttons: isExecutivaMiles ? executivasButtons : normalButtons,
+        buttons: milesButtons,
       }
     ]
   };

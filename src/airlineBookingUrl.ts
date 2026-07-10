@@ -47,6 +47,118 @@ function toYYYYMMDD(date: Date): string {
   return toISO(date).replace(/-/g, "");
 }
 
+// Smiles usa epoch ms às 03:00 UTC (00:00 BRT)
+function toEpochBRT(date: Date): number {
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 3, 0, 0);
+}
+
+function toDashDMY(date: Date): string {
+  const d = String(date.getDate()).padStart(2, "0");
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  return `${d}-${m}-${date.getFullYear()}`;
+}
+
+function toDotDMY(date: Date): string {
+  const d = String(date.getDate()).padStart(2, "0");
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  return `${d}.${m}.${date.getFullYear()}`;
+}
+
+// Qatar usa DD-MMM-YYYY com mês abreviado em inglês
+function toQatarDate(date: Date): string {
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${d}-${months[date.getMonth()]}-${date.getFullYear()}`;
+}
+
+// Azul: mesmo motor selecao-voo para cash (cc=BRL) e pontos (cc=PTS)
+function buildAzulSelecaoVoo(o: string, d: string, dep: Date, ret: Date | null, cc: "BRL" | "PTS"): string {
+  const mdy = (dt: Date) => `${String(dt.getMonth() + 1).padStart(2, "0")}/${String(dt.getDate()).padStart(2, "0")}/${dt.getFullYear()}`;
+  let qs = `c%5B0%5D.ds=${o}&c%5B0%5D.std=${mdy(dep)}&c%5B0%5D.as=${d}`;
+  if (ret) qs += `&c%5B1%5D.ds=${d}&c%5B1%5D.std=${mdy(ret)}&c%5B1%5D.as=${o}`;
+  qs += `&p%5B0%5D.t=ADT&p%5B0%5D.c=1&p%5B0%5D.cp=false&f.dl=3&f.dr=3&cc=${cc}`;
+  return `https://www.voeazul.com.br/br/pt/home/selecao-voo?${qs}`;
+}
+
+// TAP: deeplink oficial do IBE (não há parâmetro de cabine)
+function buildTapDeeplink(o: string, d: string, dep: Date, ret: Date | null): string {
+  return buildUrl("https://booking.flytap.com/booking/flights/deeplink", {
+    market: "BR",
+    language: "pt",
+    origin: o,
+    destination: d,
+    adt: "1",
+    chd: "0",
+    inf: "0",
+    flexibleDates: "false",
+    flightType: ret ? "return" : "single",
+    depDate: toDotDMY(dep),
+    ...(ret ? { retDate: toDotDMY(ret) } : {}),
+  });
+}
+
+// Qatar: motor de booking direto (mesma URL para cash; award exige login)
+function buildQatarBooking(o: string, d: string, dep: Date, ret: Date | null, cabin: Cabin): string {
+  return buildUrl("https://booking.qatarairways.com/nsp/views/showBooking.action", {
+    widget: "QR",
+    searchType: "F",
+    addTaxToFare: "Y",
+    minPurTime: "0",
+    selLang: "pt",
+    fromStation: o,
+    from: o,
+    toStation: d,
+    to: d,
+    departingHidden: toQatarDate(dep),
+    departing: toISO(dep),
+    ...(ret ? { returningHidden: toQatarDate(ret), returning: toISO(ret) } : {}),
+    bookingClass: cabin === "business" ? "B" : cabin === "first" ? "F" : "E",
+    tripType: ret ? "R" : "O",
+    adults: "1",
+    children: "0",
+    infants: "0",
+    teenager: "0",
+    ofw: "0",
+    flexibleDate: "off",
+  });
+}
+
+// Delta: pré-preenche o formulário de busca (não dispara a busca automaticamente)
+function buildDeltaSearch(o: string, d: string, dep: Date, ret: Date | null, award: boolean): string {
+  return buildUrl("https://www.delta.com/flightsearch/book-a-flight", {
+    action: "findFlights",
+    tripType: ret ? "ROUND_TRIP" : "ONE_WAY",
+    priceSchedule: "PRICE",
+    originCity: o,
+    destinationCity: d,
+    departureDate: toISO(dep),
+    ...(ret ? { returnDate: toISO(ret) } : {}),
+    paxCount: "1",
+    ...(award ? { awardTravel: "true" } : {}),
+  });
+}
+
+// Iberia: motor /flights/ (mesmo para cash e Avios, muda pagoAvios)
+function buildIberiaFlights(o: string, d: string, dep: Date, ret: Date | null, cabin: Cabin, avios: boolean): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const ym = (dt: Date) => `${dt.getFullYear()}${pad(dt.getMonth() + 1)}`;
+  const fareType = cabin === "business" ? "B" : "Y";
+  const params: [string, string][] = [
+    ["market", "US"], ["fromMarket", "BR"], ["language", "pt"],
+    ["appliesOMB", "false"], ["splitEndCity", "false"], ["initializedOMB", "true"],
+    ["flexible", "true"], ["TRIP_TYPE", ret ? "1" : "2"],
+    ["BEGIN_CITY_01", o], ["END_CITY_01", d],
+    ["BEGIN_DAY_01", pad(dep.getDate())], ["BEGIN_MONTH_01", ym(dep)], ["BEGIN_YEAR_01", String(dep.getFullYear())],
+    ["END_DAY_01", ret ? pad(ret.getDate()) : ""], ["END_MONTH_01", ret ? ym(ret) : ""], ["END_YEAR_01", ret ? String(ret.getFullYear()) : ""],
+    ["FARE_TYPE", fareType], ["quadrigam", "IBADVS"],
+    ["ADT", "1"], ["CHD", "0"], ["INF", "0"],
+    ["residentCode", ""], ["familianumerosa", ""], ["boton", "Buscar"],
+    ["bookingMarket", "BR"], ["pagoAvios", avios ? "true" : "false"],
+  ];
+  const qs = params.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+  return `https://www.iberia.com/flights/?${qs}#!/availability`;
+}
+
 function normAirline(cia: string): string {
   return (cia || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 }
@@ -91,31 +203,24 @@ const AIRLINE_BUILDERS: Record<string, BuildFn> = {
             ? "PremiumBusiness"
             : "Economy",
       redemption: "false",
-      sort: "PRICE",
+      // "PRICE" sozinho quebra a página da LATAM; o valor aceito é "PRICE,asc"
+      sort: "PRICE,asc",
     }),
 
   gol: (o, d, dep, ret, _cabin) =>
-    buildUrl("https://www.voegol.com.br/pt/buscar-voos", {
-      origin: o,
-      destination: d,
-      departure: toISO(dep),
-      ...(ret ? { return: toISO(ret) } : {}),
-      adults: "1",
-      children: "0",
-      infants: "0",
+    buildUrl("https://b2c.voegol.com.br/compra/busca-parceiros", {
+      pv: "BR",
+      tipo: "DF",
+      de: o,
+      para: d,
+      ida: toDashDMY(dep),
+      ...(ret ? { volta: toDashDMY(ret) } : {}),
+      ADT: "1",
+      CHD: "0",
+      INF: "0",
     }),
 
-  azul: (o, d, dep, ret, cabin) =>
-    buildUrl("https://www.voeazul.com.br/pt-br/home/voos", {
-      origin: o,
-      destination: d,
-      departure: toISO(dep),
-      ...(ret ? { return: toISO(ret) } : {}),
-      adults: "1",
-      children: "0",
-      infants: "0",
-      cabin: cabin === "business" ? "business" : "economy",
-    }),
+  azul: (o, d, dep, ret, _cabin) => buildAzulSelecaoVoo(o, d, dep, ret, "BRL"),
 
   copa: (o, d, dep, ret, _cabin) =>
     buildUrl("https://shopping.copaair.com/", {
@@ -135,28 +240,9 @@ const AIRLINE_BUILDERS: Record<string, BuildFn> = {
       langid: "pt",
     }),
 
-  iberia: (o, d, dep, ret, cabin) =>
-    buildUrl("https://www.iberia.com/br/comprar/buscador/", {
-      origen: o,
-      destino: d,
-      fechaIda: toDDMMYYYY(dep),
-      ...(ret ? { fechaVuelta: toDDMMYYYY(ret) } : {}),
-      adultos: "1",
-      cabina: cabin === "business" ? "C" : cabin === "first" ? "F" : "Y",
-    }),
+  iberia: (o, d, dep, ret, cabin) => buildIberiaFlights(o, d, dep, ret, cabin, false),
 
-  tap: (o, d, dep, ret, cabin) =>
-    buildUrl("https://www.flytap.com/pt-br/voos/pesquisa", {
-      origem: o,
-      destino: d,
-      "data-partida": toDDMMYYYY(dep),
-      ...(ret ? { "data-retorno": toDDMMYYYY(ret) } : {}),
-      adultos: "1",
-      criancas: "0",
-      bebes: "0",
-      "tipo-viagem": ret ? "RT" : "OW",
-      cabin: cabin === "business" ? "C" : "Y",
-    }),
+  tap: (o, d, dep, ret, _cabin) => buildTapDeeplink(o, d, dep, ret),
 
   american: (o, d, dep, ret, cabin) => {
     const slices = [{ orig: o, dest: d, date: toISO(dep) }];
@@ -171,16 +257,7 @@ const AIRLINE_BUILDERS: Record<string, BuildFn> = {
     });
   },
 
-  delta: (o, d, dep, ret, cabin) =>
-    buildUrl("https://www.delta.com/us/en/flight-search/book-a-flight", {
-      tripType: ret ? "ROUND_TRIP" : "ONE_WAY",
-      adults: "1",
-      origin: o,
-      dest: d,
-      departureDate: toISO(dep),
-      ...(ret ? { returnDate: toISO(ret) } : {}),
-      cabinType: cabin === "business" ? "FIRST" : "COACH",
-    }),
+  delta: (o, d, dep, ret, _cabin) => buildDeltaSearch(o, d, dep, ret, false),
 
   united: (o, d, dep, ret, cabin) =>
     buildUrl("https://www.united.com/en/us/fsr/choose-flights", {
@@ -194,130 +271,7 @@ const AIRLINE_BUILDERS: Record<string, BuildFn> = {
       sc: cabin === "business" ? "1" : "7",
     }),
 
-  airfrance: (o, d, dep, ret, cabin) =>
-    buildUrl("https://www.airfrance.com.br/shopping/search", {
-      departure: o,
-      destination: d,
-      outbound: toISO(dep),
-      ...(ret ? { inbound: toISO(ret) } : {}),
-      adt: "1",
-      cabin: cabin === "business" ? "BUSINESS" : "ECONOMY",
-    }),
-
-  klm: (o, d, dep, ret, cabin) =>
-    buildUrl(`https://www.klm.com/flights/br-pt/${o}-${d}`, {
-      type: ret ? "ROUND_TRIP" : "ONE_WAY",
-      adult: "1",
-      departure: toISO(dep),
-      ...(ret ? { return: toISO(ret) } : {}),
-      cabin: cabin === "business" ? "BUSINESS" : "ECONOMY",
-    }),
-
-  qatar: (o, d, dep, ret, cabin) =>
-    buildUrl("https://www.qatarairways.com/pt-br/flights.html", {
-      widget: "QRW",
-      searchType: ret ? "R" : "F",
-      fromStation: o,
-      toStation: d,
-      departingDate: toISO(dep),
-      ...(ret ? { returningDate: toISO(ret) } : {}),
-      Adults: "1",
-      Children: "0",
-      Infants: "0",
-      cabinClass: cabin === "business" ? "B" : cabin === "first" ? "F" : "E",
-      addTaxToFare: "Y",
-    }),
-
-  turkish: (o, d, dep, ret, cabin) =>
-    buildUrl("https://www.turkishairlines.com/pt-br/flights/buy-flights/", {
-      origin: o,
-      destination: d,
-      date: toYYYYMMDD(dep),
-      ...(ret ? { returnDate: toYYYYMMDD(ret) } : {}),
-      adults: "1",
-      cabin: cabin === "business" ? "C" : "Y",
-    }),
-
-  emirates: (o, d, dep, ret, cabin) =>
-    buildUrl("https://www.emirates.com/br/portuguese/book/flights/", {
-      origin: o,
-      destination: d,
-      class:
-        cabin === "business"
-          ? "Business"
-          : cabin === "first"
-            ? "First"
-            : "Economy",
-      adults: "1",
-      dep_date: toDDMMYYYY(dep),
-      ...(ret ? { ret_date: toDDMMYYYY(ret) } : {}),
-    }),
-
-  avianca: (o, d, dep, ret, cabin) =>
-    buildUrl("https://www.avianca.com/br/pt/buscar-voos/", {
-      origin: o,
-      destination: d,
-      departureDate: toISO(dep),
-      ...(ret ? { returnDate: toISO(ret) } : {}),
-      pax: "1",
-      cabinType: cabin === "business" ? "business" : "economy",
-    }),
-
-  aeromexico: (o, d, dep, ret, cabin) =>
-    buildUrl("https://aeromexico.com/pt-br/busca/resultado", {
-      origin: o,
-      destination: d,
-      departureDate: toISO(dep),
-      ...(ret ? { returnDate: toISO(ret) } : {}),
-      adults: "1",
-      children: "0",
-      infants: "0",
-      cabinClass: cabin === "business" ? "AM_BUSINESS" : "AM_ECONOMY",
-      isFlexDate: "false",
-      type: ret ? "RT" : "OW",
-    }),
-
-  aircanada: (o, d, dep, ret, cabin) =>
-    buildUrl("https://www.aircanada.com/ca/en/aco/home/book/flights.html", {
-      origin: o,
-      destination: d,
-      departureDate: toISO(dep),
-      ...(ret ? { returnDate: toISO(ret) } : {}),
-      adults: "1",
-      cabin: cabin === "business" ? "BUSINESS" : "ECONOMY",
-    }),
-
-  lufthansa: (o, d, dep, ret, cabin) => {
-    const dep_date = `${String(dep.getDate()).padStart(2, "0")}.${String(dep.getMonth() + 1).padStart(2, "0")}.${dep.getFullYear()}`;
-    const fragment = `outboundFlight=${o},${d},${dep_date}&cabinClass=${cabin === "business" ? "BUSINESS" : "ECONOMY"}&adult=1`;
-    return `https://www.lufthansa.com/br/pt/flight-search#${fragment}`;
-  },
-
-  british: (o, d, dep, ret, cabin) => {
-    const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    const depStr = `${String(dep.getDate()).padStart(2, "0")}${months[dep.getMonth()]}${String(dep.getFullYear()).slice(-2)}`;
-    return buildUrl("https://www.britishairways.com/en-gb/flights", {
-      tripType: ret ? "RT" : "OW",
-      from: o,
-      to: d,
-      depart: depStr,
-      adult: "1",
-      cabin: cabin === "business" ? "C" : cabin === "first" ? "F" : "M",
-    });
-  },
+  qatar: (o, d, dep, ret, cabin) => buildQatarBooking(o, d, dep, ret, cabin),
 
   alaska: (o, d, dep, ret, _cabin) =>
     buildUrl("https://www.alaskaair.com/search/results", {
@@ -329,25 +283,50 @@ const AIRLINE_BUILDERS: Record<string, BuildFn> = {
       RT: ret ? "true" : "false",
     }),
 
-  aireuropa: (o, d, dep, ret, cabin) =>
-    buildUrl("https://www.aireuropa.com/br/pt/busca", {
-      departure: o,
-      arrival: d,
-      outboundDate: toISO(dep),
-      ...(ret ? { inboundDate: toISO(ret) } : {}),
-      adults: "1",
-      cabin: cabin === "business" ? "C" : "Y",
+  // Companhias sem deeplink público funcional (verificado 07/2026 — 404/redirect):
+  // link estático para a página de busca do site oficial
+  airfrance: () => "https://wwws.airfrance.com.br/search/advanced",
+
+  klm: () => "https://www.klm.com.br/",
+
+  turkish: () => "https://www.turkishairlines.com/pt-br/",
+
+  emirates: () => "https://www.emirates.com/br/portuguese/",
+
+  avianca: (o, d, dep, ret, _cabin) =>
+    buildUrl("https://booking.avianca.com/av/booking/avail", {
+      departureDate: toISO(dep),
+      tripType: ret ? "round-trip" : "one-way",
+      platform: "WEBB2C",
+      from: o,
+      to: d,
+      nbAdults: "1",
+      nbYoungs: "0",
+      nbChildren: "0",
+      nbInfants: "0",
+      language: "PT",
+      pointOfSale: "BR",
+      ...(ret ? { returnDate: toISO(ret) } : {}),
+      accessMethod: "default",
+      backend: "PRD",
     }),
 
-  virgin: (o, d, dep, ret, cabin) =>
-    buildUrl("https://www.virginatlantic.com/flights/search", {
-      origin: o,
-      destination: d,
-      outbound: toISO(dep),
-      ...(ret ? { inbound: toISO(ret) } : {}),
-      adults: "1",
-      cabinClass: cabin === "business" ? "Upper" : "Economy",
-    }),
+  aeromexico: () => "https://www.aeromexico.com/pt-br",
+
+  aircanada: () => "https://www.aircanada.com/home/br/pt/aco/flights",
+
+  british: () => "https://www.britishairways.com/travel/home/public/pt_br/",
+
+  aireuropa: () => "https://www.aireuropa.com/br/pt/home",
+
+  virgin: () => "https://www.virginatlantic.com/",
+
+  // Lufthansa: o fragment pré-preenche ao menos a origem na página de busca
+  lufthansa: (o, d, dep, _ret, cabin) => {
+    const dep_date = toDotDMY(dep);
+    const fragment = `outboundFlight=${o},${d},${dep_date}&cabinClass=${cabin === "business" ? "BUSINESS" : "ECONOMY"}&adult=1`;
+    return `https://www.lufthansa.com/br/pt/flight-search#${fragment}`;
+  },
 };
 
 const AIRLINE_NAME_MAP: Record<string, string> = {
@@ -438,28 +417,26 @@ const PROGRAM_BUILDERS: Record<string, ProgramBuildFn> = {
       adt: '1', inf: '0', chd: '0',
       cabin: cabin === 'business' ? 'Business' : cabin === 'first' ? 'PremiumBusiness' : 'Economy',
       redemption: 'true',
-      sort: 'PRICE',
+      // "PRICE" sozinho quebra a página da LATAM; o valor aceito é "PRICE,asc"
+      sort: 'PRICE,asc',
     }),
 
   smiles: (o, d, dep, ret, cabin) =>
-    buildUrl('https://www.smiles.com.br/passagem-aerea', {
+    buildUrl('https://www.smiles.com.br/mfe/emissao-passagem/', {
+      adults: '1',
+      cabin: cabin === 'business' ? 'BUSINESS' : 'ECONOMY',
+      children: '0', infants: '0',
+      isElegible: 'false', isFlexibleDateChecked: 'false',
+      searchType: 'g3', segments: '1',
+      originAirportIsAny: 'true', destinAirportIsAny: 'true',
+      'novo-resultado-voos': 'true',
+      departureDate: String(toEpochBRT(dep)),
+      ...(ret ? { returnDate: String(toEpochBRT(ret)) } : {}),
       tripType: ret ? '1' : '2',
       originAirport: o, destinationAirport: d,
-      departureDate: toISO(dep),
-      ...(ret ? { returnDate: toISO(ret) } : {}),
-      adults: '1', children: '0', infants: '0',
-      cabin: cabin === 'business' ? 'business' : 'economy',
-      isFlexDate: 'false',
     }),
 
-  'azul fidelidade': (o, d, dep, ret, cabin) =>
-    buildUrl('https://www.tudoazul.com.br/emissao', {
-      originAirportCode: o, destinationAirportCode: d,
-      departureDate: toISO(dep),
-      ...(ret ? { returnDate: toISO(ret) } : {}),
-      adults: '1',
-      cabin: cabin === 'business' ? 'business' : 'economy',
-    }),
+  'azul fidelidade': (o, d, dep, ret, _cabin) => buildAzulSelecaoVoo(o, d, dep, ret, 'PTS'),
 
   'azul interline': (o, d, dep, ret, cabin) => {
     const tripType = ret ? 'RT' : 'OW';
@@ -468,35 +445,11 @@ const PROGRAM_BUILDERS: Record<string, ProgramBuildFn> = {
     return `https://azulpelomundo.voeazul.com.br/flights/${tripType}/${o}/${d}/-/-/${toISO(dep)}/${retDate}/1/0/0/0/0/ALL/F/${cabinStr}/-/-/-/-/A/-`;
   },
 
-  'iberia plus': (o, d, dep, ret, cabin) => {
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const iberiaMonth = (date: Date) => `${date.getFullYear()}${pad(date.getMonth() + 1)}`;
-    const fareType = cabin === 'business' ? 'B' : 'Y';
-    const params: [string, string][] = [
-      ['market', 'US'], ['fromMarket', 'BR'], ['language', 'pt'],
-      ['appliesOMB', 'false'], ['splitEndCity', 'false'], ['initializedOMB', 'true'],
-      ['flexible', 'true'], ['TRIP_TYPE', ret ? '1' : '2'],
-      ['BEGIN_CITY_01', o], ['END_CITY_01', d],
-      ['BEGIN_DAY_01', pad(dep.getDate())], ['BEGIN_MONTH_01', iberiaMonth(dep)], ['BEGIN_YEAR_01', String(dep.getFullYear())],
-      ['END_DAY_01', ret ? pad(ret.getDate()) : ''], ['END_MONTH_01', ret ? iberiaMonth(ret) : ''], ['END_YEAR_01', ret ? String(ret.getFullYear()) : ''],
-      ['FARE_TYPE', fareType], ['quadrigam', 'IBADVS'],
-      ['ADT', '1'], ['CHD', '0'], ['INF', '0'],
-      ['residentCode', ''], ['familianumerosa', ''], ['boton', 'Buscar'],
-      ['bookingMarket', 'BR'], ['pagoAvios', 'true'],
-    ];
-    const qs = params.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
-    return `https://www.iberia.com/flights/?${qs}#!/availability`;
-  },
+  'iberia plus': (o, d, dep, ret, cabin) => buildIberiaFlights(o, d, dep, ret, cabin, true),
 
-  'tap miles&go': (o, d, dep, ret, cabin) =>
-    buildUrl('https://www.flytap.com/pt-br/voos/pesquisa', {
-      origem: o, destino: d,
-      'data-partida': toDDMMYYYY(dep),
-      ...(ret ? { 'data-retorno': toDDMMYYYY(ret) } : {}),
-      adultos: '1', criancas: '0', bebes: '0',
-      'tipo-viagem': ret ? 'RT' : 'OW',
-      payment: 'miles',
-    }),
+  // TAP não tem deeplink público de milhas; o IBE pré-preenche a busca e o
+  // cliente alterna para milhas após login no Miles&Go
+  'tap miles&go': (o, d, dep, ret, _cabin) => buildTapDeeplink(o, d, dep, ret),
 
   aadvantage: (o, d, dep, ret, cabin) => {
     const slices = [{ orig: o, dest: d, date: toISO(dep) }];
@@ -510,37 +463,21 @@ const PROGRAM_BUILDERS: Record<string, ProgramBuildFn> = {
     });
   },
 
-  connectmiles: (o, d, dep, ret, cabin) =>
-    buildUrl('https://www.copaair.com/pt-br/web/br/busca', {
-      departure: o, arrival: d,
-      date: toCOPA(dep),
-      ...(ret ? { returnDate: toCOPA(ret) } : {}),
-      cabin: cabin === 'business' ? 'C' : cabin === 'first' ? 'F' : 'Y',
+  connectmiles: (o, d, dep, ret, _cabin) =>
+    buildUrl('https://shopping.copaair.com/miles', {
+      roundtrip: ret ? 'true' : 'false',
+      area1: o, area2: d,
+      date1: toISO(dep),
+      ...(ret ? { date2: toISO(ret) } : {}),
+      flexible_dates_v2: 'false',
       adults: '1', children: '0', infants: '0',
-      currency: 'BRL',
-      redemption: 'true',
+      isMiles: 'true',
+      advanced_air_search: 'false',
+      stopover: 'false',
+      sf: 'br', langid: 'pt',
     }),
 
-  'privilege club': (o, d, dep, ret, cabin) =>
-    buildUrl('https://www.qatarairways.com/pt-br/flights.html', {
-      widget: 'QRW',
-      searchType: ret ? 'R' : 'F',
-      fromStation: o, toStation: d,
-      departingDate: toISO(dep),
-      ...(ret ? { returningDate: toISO(ret) } : {}),
-      Adults: '1', Children: '0', Infants: '0',
-      cabinClass: cabin === 'business' ? 'B' : cabin === 'first' ? 'F' : 'E',
-      addTaxToFare: 'Y',
-    }),
-
-  'flying blue': (o, d, dep, ret, cabin) =>
-    buildUrl('https://www.flyingblue.com/en/spend/flights/search', {
-      origin: o, destination: d,
-      adults: '1',
-      travel_date: toISO(dep),
-      ...(ret ? { return_date: toISO(ret) } : {}),
-      cabin: cabin === 'business' ? 'BUSINESS' : 'ECONOMY',
-    }),
+  'privilege club': (o, d, dep, ret, cabin) => buildQatarBooking(o, d, dep, ret, cabin),
 
   'mileage plan': (o, d, dep, ret, _cabin) =>
     buildUrl('https://www.alaskaair.com/search/results', {
@@ -551,25 +488,7 @@ const PROGRAM_BUILDERS: Record<string, ProgramBuildFn> = {
       MR: 'true',
     }),
 
-  'flying club': (o, d, dep, ret, cabin) =>
-    buildUrl('https://www.virginatlantic.com/flights/search', {
-      origin: o, destination: d,
-      outbound: toISO(dep),
-      ...(ret ? { inbound: toISO(ret) } : {}),
-      adults: '1',
-      cabinClass: cabin === 'business' ? 'Upper' : 'Economy',
-      flightType: 'MILES',
-    }),
-
-  skymiles: (o, d, dep, ret, cabin) =>
-    buildUrl('https://www.delta.com/us/en/flight-search/book-a-flight', {
-      tripType: ret ? 'ROUND_TRIP' : 'ONE_WAY',
-      adults: '1', origin: o, dest: d,
-      departureDate: toISO(dep),
-      ...(ret ? { returnDate: toISO(ret) } : {}),
-      cabinType: cabin === 'business' ? 'FIRST' : 'COACH',
-      awardTravel: 'true',
-    }),
+  skymiles: (o, d, dep, ret, _cabin) => buildDeltaSearch(o, d, dep, ret, true),
 
   mileageplus: (o, d, dep, ret, cabin) =>
     buildUrl('https://www.united.com/en/us/fsr/choose-flights', {
@@ -582,34 +501,32 @@ const PROGRAM_BUILDERS: Record<string, ProgramBuildFn> = {
       awd: 'true',
     }),
 
-  aeroplan: (o, d, dep, ret, cabin) =>
-    buildUrl('https://www.aircanada.com/ca/en/aco/home/book/flights-only/rewards.html', {
-      origin: o, destination: d,
-      departureDate: toISO(dep),
-      ...(ret ? { returnDate: toISO(ret) } : {}),
-      adults: '1',
-      cabin: cabin === 'business' ? 'BUSINESS' : 'ECONOMY',
+  // Programas sem deeplink público funcional (verificado 07/2026 — 404/redirect):
+  // link estático para a página do programa/companhia
+  'flying blue': () => "https://wwws.airfrance.com.br/search/advanced",
+
+  'flying club': () => "https://www.virginatlantic.com/",
+
+  // Aeroplan: deeplink reconhecido; pede login e segue para a disponibilidade
+  aeroplan: (o, d, dep, ret, _cabin) =>
+    buildUrl("https://www.aircanada.com/aeroplan/redeem/availability/outbound", {
+      org0: o,
+      dest0: d,
+      departureDate0: toISO(dep),
+      ...(ret ? { departureDate1: toISO(ret) } : {}),
+      lang: "en-CA",
+      tripType: ret ? "R" : "O",
+      ADT: "1",
+      YTH: "0",
+      CHD: "0",
+      INF: "0",
+      INS: "0",
+      marketCode: "INT",
     }),
 
-  'suma miles': (o, d, dep, ret, cabin) =>
-    buildUrl('https://www.aireuropa.com/br/pt/busca', {
-      departure: o, arrival: d,
-      outboundDate: toISO(dep),
-      ...(ret ? { inboundDate: toISO(ret) } : {}),
-      adults: '1',
-      cabin: cabin === 'business' ? 'C' : 'Y',
-      sumamiles: 'true',
-    }),
+  'suma miles': () => "https://www.aireuropa.com/br/pt/home",
 
-  lifemiles: (o, d, dep, ret, cabin) =>
-    buildUrl('https://www.avianca.com/br/pt/buscar-voos/', {
-      origin: o, destination: d,
-      departureDate: toISO(dep),
-      ...(ret ? { returnDate: toISO(ret) } : {}),
-      pax: '1',
-      cabinType: cabin === 'business' ? 'business' : 'economy',
-      redemption: 'true',
-    }),
+  lifemiles: () => "https://www.lifemiles.com/",
 };
 
 function normProgram(programa: string): string {
