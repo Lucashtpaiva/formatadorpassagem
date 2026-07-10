@@ -9,8 +9,6 @@ import { loadMilheiroConfig } from './milheiroHandler';
 import { getFreshDestinationOverrides } from './destinationHandler';
 import { verifyOffer, saveBmResult, getBmAirline, isBmEnabled } from './buscamilhasClient';
 
-const WA_SUPORTE = 'https://wa.me/5522981459289';
-
 type IataCandidate = {
   iata_origem?: string;
   iata_destino?: string;
@@ -394,7 +392,7 @@ export async function checkForCompleteOffer(phone: string, chatName: string) {
             {
               id: "1",
               label: "Comprar em Dinheiro",
-              url: WA_SUPORTE,
+              url: waLink,
               type: "URL"
             },
             {
@@ -647,9 +645,10 @@ async function processAlertaPremiumCaption(phone: string, chatName: string, capt
   const precoVolta = milheiroValor > 0 ? Math.round((milhasVolta / 1000) * milheiroValor * 100) / 100 : 0;
   const dinheiroTotal = Math.round((precoIda + precoVolta) * 100) / 100;
 
-  // Oferta em milhas: "Comprar em Dinheiro" sempre vai para o WhatsApp das emissões
+  // Oferta em milhas: "Comprar em Dinheiro" sempre vai para o WhatsApp das
+  // emissões, com o resumo da oferta pré-preenchido na mensagem
   const milesButtons = [
-    { id: "1", label: "Comprar em Dinheiro", url: WA_SUPORTE, type: "URL" },
+    { id: "1", label: "Comprar em Dinheiro", url: waLink, type: "URL" },
     ...(resolvedLink ? [{ id: "2", label: "Comprar com Milhas", url: resolvedLink, type: "URL" }] : []),
   ];
 
