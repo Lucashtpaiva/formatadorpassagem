@@ -311,15 +311,62 @@ const AIRLINE_BUILDERS: Record<string, BuildFn> = {
       backend: "PRD",
     }),
 
-  aeromexico: () => "https://www.aeromexico.com/pt-br",
+  aeromexico: (o, d, dep, ret, _cabin) => {
+    let itinerary = `${o}_${d}_${toISO(dep)}`;
+    if (ret) itinerary += `.${d}_${o}_${toISO(ret)}`;
+    return buildUrl("https://www.aeromexico.com/bf/pt-br/reserva/opcoes", {
+      itinerary,
+      leg: "1",
+      travelers: "A1_C0_I0_PH0_PC0",
+    });
+  },
 
-  aircanada: () => "https://www.aircanada.com/home/br/pt/aco/flights",
+  aircanada: (o, d, dep, ret, _cabin) =>
+    buildUrl("https://www.aircanada.com/booking/ca/en/aco/search", {
+      org0: o,
+      dest0: d,
+      orgType0: "A",
+      destType0: "A",
+      ...(ret ? { org1: d, dest1: o, orgType1: "A", destType1: "A" } : {}),
+      departureDate0: toDDMMYYYY(dep),
+      ...(ret ? { departureDate1: toDDMMYYYY(ret) } : {}),
+      adt: "1",
+      yth: "0",
+      chd: "0",
+      inf: "0",
+      ins: "0",
+      marketCode: "INT",
+      tripType: ret ? "RoundTrip" : "OneWay",
+      isFlexible: "false",
+    }),
 
-  british: () => "https://www.britishairways.com/travel/home/public/pt_br/",
+  british: (o, d, dep, ret, cabin) => {
+    let onds = `${o}-${d}_${toISO(dep)}`;
+    if (ret) onds += `,${d}-${o}_${toISO(ret)}`;
+    return buildUrl("https://www.britishairways.com/travel/book/public/pt_br/flightList", {
+      onds,
+      ad: "1",
+      yad: "0",
+      ch: "0",
+      inf: "0",
+      cabin: cabin === "business" ? "C" : cabin === "first" ? "F" : "M",
+      flex: "LOWEST",
+      ond: "1",
+    });
+  },
 
   aireuropa: () => "https://www.aireuropa.com/br/pt/home",
 
-  virgin: () => "https://www.virginatlantic.com/",
+  // Virgin usa parâmetros repetidos (um origin/destination/departing por
+  // trecho) — não dá pra usar buildUrl (chaves únicas), monta a query manual
+  virgin: (o, d, dep, ret, _cabin) => {
+    const legs = [{ origin: o, destination: d, departing: toISO(dep) }];
+    if (ret) legs.push({ origin: d, destination: o, departing: toISO(ret) });
+    const originQs = legs.map((l) => `origin=${l.origin}`).join("&");
+    const destQs = legs.map((l) => `destination=${l.destination}`).join("&");
+    const depQs = legs.map((l) => `departing=${l.departing}`).join("&");
+    return `https://www.virginatlantic.com/flights/search/slice?passengers=a1t0c0i0&${originQs}&${destQs}&${depQs}`;
+  },
 
   // Lufthansa: o fragment pré-preenche ao menos a origem na página de busca
   lufthansa: (o, d, dep, _ret, cabin) => {
